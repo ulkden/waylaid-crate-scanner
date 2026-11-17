@@ -379,6 +379,19 @@ for id in pairs(scanItems) do
 end
 check(crateIDs == 30, "market scan includes all 30 crate item IDs")
 print("     market scan size: " .. nScan .. " items")
+check(ns.Tree.MarketScanItems() == scanItems, "market scan item set is built once and reused")
+
+-- ---- lookups and caches ---------------------------------------------------
+P.Store(99001, { { 3, 900 }, { 1, 900 }, { 2, 900 } })
+check(
+  #P.Get(99001).ladder == 2 and P.Listed(99001) == 2700,
+  "ladder keeps the cheapest ~1000 units but Listed counts everything (2700)"
+)
+ns.db.prices[99001] = nil
+local name, isFallback = ns.ItemName(2770)
+check(name == "Copper Ore" and not isFallback, "ItemName: client name, not a fallback")
+check(select(2, ns.ItemName(424242)) == true, "ItemName: unknown item reports a fallback name")
+check(ns.CrateTier("Earthly Expert Herbs") == "Expert" and ns.CrateTier("Mystery") == nil, "CrateTier lookup")
 
 -- ---- merchant's favor --------------------------------------------------
 check(ns.GetFavor("Apprentice Ore", 1) == 5 and ns.GetFavor("Apprentice Parts", 2) == 10, "apprentice favor 5 / 10")

@@ -5,6 +5,7 @@ local _, ns = ...
 -- built-in data, so changes to the crates in a patch are picked up automatically.
 
 local CRATE_NAME_PATTERN = "^Waylaid Crate:%s*(.-)%s*$"
+local LAST_BAG = NUM_TOTAL_EQUIPPED_BAG_SLOTS or ((NUM_BAG_SLOTS or 4) + 1)
 
 -- Every material that appears as a crate option (used for tooltip matching).
 local optionItemIDs = {}
@@ -17,6 +18,14 @@ do
         table.insert(optionItemIDs, opt[1])
       end
     end
+  end
+end
+
+-- [crateItemID] = crate key, from the item IDs in Data.lua.
+ns.CrateByItemID = {}
+for key, def in pairs(ns.Crates) do
+  if def.itemID then
+    ns.CrateByItemID[def.itemID] = key
   end
 end
 
@@ -51,26 +60,39 @@ local function GetTooltipLines(bag, slot)
   return lines
 end
 
--- Returns a list of {itemID, lowerName} sorted longest name first, so that
--- "Bolt of Linen Cloth" wins over "Linen Cloth" on the same tooltip line.
-local function GetMaterialNameList()
-  local list = {}
-  for _, itemID in ipairs(optionItemIDs) do
-    table.insert(list, { itemID, ns.ItemName(itemID):lower() })
+-- { {itemID, lowerName}, ... } sorted longest name first, so that "Bolt of Linen Cloth" wins over
+-- "Linen Cloth" on the same tooltip line. Built once; rebuilt only while some names are still the
+-- English fallbacks (the client hasn't loaded them yet).
+local nameList, nameListComplete
+local function MaterialNames()
+  if not nameList then
+    nameList, nameListComplete = {}, true
+    for _, itemID in ipairs(optionItemIDs) do
+      local name, isFallback = ns.ItemName(itemID)
+      if isFallback then
+        nameListComplete = false
+      end
+      table.insert(nameList, { itemID, name:lower() })
+    end
+    table.sort(nameList, function(a, b)
+      return #a[2] > #b[2]
+    end)
   end
-  table.sort(list, function(a, b)
-    return #a[2] > #b[2]
-  end)
-  return list
+  return nameList
 end
+ns:Listen("ITEM_DATA_UPDATED", function()
+  if not nameListComplete then
+    nameList = nil
+  end
+end)
 
 -- Parses tooltip lines into { [itemID] = quantity }. The largest number on a line that
 -- names a material is taken as its quantity.
-local function ParseTooltipQuantities(lines, nameList)
+local function ParseTooltipQuantities(lines, names)
   local found = {}
   for _, line in ipairs(lines) do
     local lower = line:lower()
-    for _, entry in ipairs(nameList) do
+    for _, entry in ipairs(names) do
       local s, e = lower:find(entry[2], 1, true)
       if s then
         local rest = lower:sub(1, s - 1) .. " " .. lower:sub(e + 1)
@@ -91,6 +113,24 @@ local function ParseTooltipQuantities(lines, nameList)
   return found
 end
 
+-- A crate's fill options: Data.lua's, with quantities from its tooltip where the tooltip lists
+-- them, plus any tooltip material our data doesn't know about.
+local function ReadOptions(key, bag, slot)
+  local parsed = ParseTooltipQuantities(GetTooltipLines(bag, slot), MaterialNames())
+  local options = {}
+  local def = ns.Crates[key]
+  if def then
+    for _, opt in ipairs(def.options) do
+      table.insert(options, { opt[1], parsed[opt[1]] or opt[2] })
+      parsed[opt[1]] = nil
+    end
+  end
+  for optID, qty in pairs(parsed) do
+    table.insert(options, { optID, qty })
+  end
+  return options
+end
+
 --- Maps a crate item name to its data key ("Waylaid Crate: Apprentice Ore" -> "Apprentice Ore").
 --- Returns key, isKnown.
 function ns.CrateKeyFromName(name)
@@ -101,87 +141,60 @@ function ns.CrateKeyFromName(name)
   return suffix, ns.Crates[suffix] ~= nil
 end
 
--- [crateItemID] = crate key, from the item IDs in Data.lua.
-ns.CrateByItemID = {}
-for key, def in pairs(ns.Crates) do
-  if def.itemID then
-    ns.CrateByItemID[def.itemID] = key
-  end
-end
+-- Item IDs whose name is known and isn't a Waylaid Crate, so they're skipped on later scans.
+local notCrate = {}
 
 local function IdentifyCrate(itemID, hyperlink)
   local key = ns.CrateByItemID[itemID]
   if key then
-    return key, C_Item.GetItemNameByID(itemID) or ("Waylaid Crate: " .. key)
+    return key, ns.ItemName(itemID)
+  end
+  if notCrate[itemID] then
+    return nil
   end
   -- Fallback by name, for a crate type added after Data.lua was generated.
   local name = C_Item.GetItemNameByID(itemID) or (hyperlink and hyperlink:match("%[(.-)%]"))
   local nameKey, known = ns.CrateKeyFromName(name)
   if not nameKey then
+    if name then
+      notCrate[itemID] = true
+    end
     return nil
   end
   return known and nameKey or ("?" .. nameKey), name
 end
 
-local function LastBagIndex()
-  return NUM_TOTAL_EQUIPPED_BAG_SLOTS or ((NUM_BAG_SLOTS or 4) + 1)
-end
-
---- Scans bags. Returns a list of crate instances:
---- { key, name, itemID, count, options = { {itemID, qty}, ... } }
+--- Scans bags. Returns a list of crate instances, one per crate item ID (stacks are merged):
+--- { key, name, itemID, quality, count, options = { {itemID, qty}, ... } }
+--- Stacks of the same item ID share a tooltip, so each crate type's tooltip is read only once.
 function ns.ScanBags()
-  local result, bySignature = {}, {}
-  local nameList
-  for bag = 0, LastBagIndex() do
-    local numSlots = C_Container.GetContainerNumSlots(bag) or 0
-    for slot = 1, numSlots do
+  local result, byItemID = {}, {}
+  for bag = 0, LAST_BAG do
+    for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
       local info = C_Container.GetContainerItemInfo(bag, slot)
-      if info and info.itemID then
-        local key, name = IdentifyCrate(info.itemID, info.hyperlink)
+      local itemID = info and info.itemID
+      local inst = itemID and byItemID[itemID]
+      if inst then
+        inst.count = inst.count + (info.stackCount or 1)
+      elseif itemID then
+        local key, name = IdentifyCrate(itemID, info.hyperlink)
         if key then
-          nameList = nameList or GetMaterialNameList()
-          local parsed = ParseTooltipQuantities(GetTooltipLines(bag, slot), nameList)
-
-          local options, used = {}, {}
           local def = ns.Crates[key]
-          if def then
-            for _, opt in ipairs(def.options) do
-              table.insert(options, { opt[1], parsed[opt[1]] or opt[2] })
-              used[opt[1]] = true
-            end
+          inst = {
+            key = key,
+            name = name or key,
+            itemID = itemID,
+            quality = (def and def.quality) or ns.ItemQuality(itemID),
+            count = info.stackCount or 1,
+            options = ReadOptions(key, bag, slot),
+          }
+          byItemID[itemID] = inst
+          table.insert(result, inst)
+          if ns.db.debug then
+            ns.Debug(
+              string.format("crate %s (%d) bag %d slot %d, %d options", inst.name, itemID, bag, slot, #inst.options)
+            )
           end
-          -- Options found on the tooltip that our data doesn't know about.
-          for optID, qty in pairs(parsed) do
-            if not used[optID] then
-              table.insert(options, { optID, qty })
-            end
-          end
-
-          local sigParts = { key }
-          for _, opt in ipairs(options) do
-            table.insert(sigParts, opt[1] .. ":" .. opt[2])
-          end
-          local sig = table.concat(sigParts, "|")
-
-          local count = info.stackCount or 1
-          local inst = bySignature[sig]
-          if inst then
-            inst.count = inst.count + count
-          else
-            inst = {
-              key = key,
-              name = name or key,
-              itemID = info.itemID,
-              quality = (def and def.quality) or C_Item.GetItemQualityByID(info.itemID),
-              count = count,
-              options = options,
-            }
-            bySignature[sig] = inst
-            table.insert(result, inst)
-          end
-          ns.Debug(
-            string.format("crate %s (%d) bag %d slot %d, %d options", inst.name, info.itemID, bag, slot, #options)
-          )
         end
       end
     end
@@ -194,7 +207,7 @@ end
 
 function ns.DumpCrateTooltips()
   local any = false
-  for bag = 0, LastBagIndex() do
+  for bag = 0, LAST_BAG do
     for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
       local info = C_Container.GetContainerItemInfo(bag, slot)
       if info and info.itemID and IdentifyCrate(info.itemID, info.hyperlink) then

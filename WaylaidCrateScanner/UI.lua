@@ -370,16 +370,6 @@ local function BuildRow(button)
   button.built = true
 end
 
-local function QualityHex(quality)
-  if quality and C_Item.GetItemQualityColor then
-    local _, _, _, hex = C_Item.GetItemQualityColor(quality)
-    if hex then
-      return "|c" .. hex
-    end
-  end
-  return COLOR_CRATE
-end
-
 local function InitRow(button, row)
   if not button.built then
     BuildRow(button)
@@ -408,8 +398,8 @@ local function InitRow(button, row)
     else
       button.Bg:SetColorTexture(1, 0.82, 0, 0.10)
     end
-    button.Icon:SetTexture((inst.itemID and C_Item.GetItemIconByID(inst.itemID)) or 132594)
-    local label = QualityHex(inst.quality) .. inst.name .. "|r"
+    button.Icon:SetTexture(inst.itemID and ns.ItemIcon(inst.itemID) or 132594)
+    local label = (ns.QualityHex(inst.quality) or COLOR_CRATE) .. inst.name .. "|r"
     if inst.count > 1 then
       label = label .. "  x" .. inst.count
     end
