@@ -37,6 +37,7 @@ During initial development, changes go straight to `main`. Once the addon is rea
 ```
 WaylaidCrateScanner/
   WaylaidCrateScanner.toc  load order
+  README.md     CurseForge project description (player-facing; paste into the CurseForge page)
   Data.lua      GENERATED: crates (item ID, level, quality, fill options), recipes, vendor prices
   Core.lua      namespace, events, message bus, saved variables, money formatting, slash commands
   Favor.lua     Merchant's Favor per crate tier/quality (hand-maintained) + /wcs favor overrides
