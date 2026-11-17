@@ -12,6 +12,7 @@ local Tree = {}
 ns.Tree = Tree
 
 local MAX_DEPTH = 8
+local NONE = {}
 
 local function MakeMaterial(itemID, need, perCraft, path, ancestors, depth)
   local node = {
@@ -39,15 +40,19 @@ end
 
 --- inst = { key, name, itemID, count, options = { {itemID, qty}, ... } }
 function Tree.BuildRoot(inst, path)
-  local root = { kind = "crate", inst = inst, path = path, children = {} }
+  -- key/price are copied onto the root so the UI can sort roots by plain field name.
+  local root = { kind = "crate", inst = inst, key = inst.key, price = inst.price, path = path }
+  local children = {}
   for i, opt in ipairs(inst.options) do
     local itemID, qty = opt[1], opt[2]
     local child = MakeMaterial(itemID, qty, nil, path .. ">" .. itemID, {}, 0)
     child.optionQty = qty
     child.crate = root -- option rows link back to their crate (used by the Buy button)
     child.order = i
-    root.children[i] = child
+    children[i] = child
   end
+  -- Every node's children is either nil or non-empty, so `if node.children` means "expandable".
+  root.children = children[1] and children or nil
   return root
 end
 
@@ -196,7 +201,7 @@ function Tree.Compute(roots)
     root.best, root.bestChild = nil, nil
     root.buyBest, root.buyBestChild = nil, nil
     root.craftBest, root.craftBestChild = nil, nil
-    for _, child in ipairs(root.children) do
+    for _, child in ipairs(root.children or NONE) do
       ComputeMaterial(child)
       child.isCheapest, child.isCheapestBuy = false, false
       if child.best and (root.best == nil or child.best < root.best) then
@@ -217,7 +222,7 @@ function Tree.Compute(roots)
     root.favor, root.favorConfirmed = favor, confirmed
     local base = price or 0
     root.perFavor = (favor and favor > 0 and root.best) and (base + root.best) / favor or nil
-    for _, child in ipairs(root.children) do
+    for _, child in ipairs(root.children or NONE) do
       child.perFavor = (favor and favor > 0 and child.best) and (base + child.best) / favor or nil
     end
     if favor then
@@ -229,7 +234,9 @@ function Tree.Compute(roots)
     if root.buyBestChild then
       root.buyBestChild.isCheapestBuy = true
     end
-    table.sort(root.children, CompareOptions)
+    if root.children then
+      table.sort(root.children, CompareOptions)
+    end
 
     local count = root.inst.count
     if root.best then
@@ -264,7 +271,7 @@ function Tree.Flatten(roots)
   local rows = {}
   local function add(node, depth)
     table.insert(rows, { node = node, depth = depth })
-    if node.children and #node.children > 0 and Tree.IsExpanded(node) then
+    if node.children and Tree.IsExpanded(node) then
       for _, child in ipairs(node.children) do
         add(child, depth + 1)
       end
@@ -278,7 +285,7 @@ end
 
 function Tree.SetAllExpanded(roots, value)
   local function walk(node)
-    if node.children and #node.children > 0 then
+    if node.children then
       Tree.SetExpanded(node, value)
       for _, child in ipairs(node.children) do
         walk(child)

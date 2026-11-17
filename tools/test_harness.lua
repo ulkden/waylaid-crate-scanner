@@ -293,6 +293,7 @@ for _, f in ipairs({
   "Scanner.lua",
   "Tree.lua",
   "Purchase.lua",
+  "Widgets.lua",
   "UI.lua",
   "BuyUI.lua",
 }) do

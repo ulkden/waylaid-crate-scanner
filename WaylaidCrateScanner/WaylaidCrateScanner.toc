@@ -23,5 +23,6 @@ Prices.lua
 Scanner.lua
 Tree.lua
 Purchase.lua
+Widgets.lua
 UI.lua
 BuyUI.lua

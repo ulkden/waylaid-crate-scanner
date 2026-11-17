@@ -16,14 +16,10 @@ local FRESH_SECONDS = 300 -- Scan skips items priced within this window (Shift-c
 local DEFAULT_W, DEFAULT_H = 1100, 600
 local MIN_W, MIN_H = 960, 360
 
-local COLOR_CRATE = "|cffffd100"
-local COLOR_GREY = "|cff808080"
-local COLOR_DIM = "|cffa0a0a0"
-local COLOR_RED = "|cffff4040"
-local COLOR_ORANGE = "|cffff9933"
-local COLOR_GREEN = "|cff40ff40"
-local COLOR_CRAFT = "|cff66ccff"
-local COLOR_FAVOR = "|cffe6cc80"
+local C = ns.COLOR
+local COLOR_CRATE, COLOR_GREY, COLOR_DIM, COLOR_RED = C.CRATE, C.GREY, C.DIM, C.RED
+local COLOR_ORANGE, COLOR_GREEN, COLOR_CRAFT, COLOR_FAVOR = C.ORANGE, C.GREEN, C.CRAFT, C.FAVOR
+local IsAHOpen, MakeButton, SimpleTooltip = ns.IsAHOpen, ns.MakeButton, ns.SimpleTooltip
 
 local PLUS = "Interface\\Buttons\\UI-PlusButton-Up"
 local MINUS = "Interface\\Buttons\\UI-MinusButton-Up"
@@ -99,7 +95,7 @@ local function MatUnit(node)
 end
 
 local function MatPerCraft(node)
-  if not (node.children and #node.children > 0) then
+  if not node.children then
     return ""
   end
   local s = node.perCraftCost and Money(node.perCraftCost) or (COLOR_GREY .. "?|r")
@@ -125,7 +121,7 @@ local function MatBuy(node)
 end
 
 local function MatCraft(node)
-  if not (node.children and #node.children > 0) then
+  if not node.children then
     return ""
   end
   if not node.craftCost then
@@ -218,29 +214,32 @@ local function Blank()
   return ""
 end
 
--- Per-mode columns: header, width, value for crate rows, value for material rows, sort key.
+-- Column widths, right to left from the name column. Both modes share them because the row
+-- widgets are pooled and reused across modes.
+local WIDTHS = { 50, 100, 100, 110, 110, 105, 55, 105 }
+local NUM_COLS = #WIDTHS
+
+-- Per-mode columns: header, value for crate rows, value for material rows, sort key.
 local COLUMNS = {
   bags = {
     {
       header = "Need",
-      width = 50,
       crate = Blank,
       mat = function(n)
         return n.need
       end,
     },
-    { header = "AH unit", width = 100, crate = Blank, mat = MatUnit },
-    { header = "Per craft", width = 100, crate = Blank, mat = MatPerCraft },
-    { header = "Buy all", width = 110, sort = "buy", crate = CrateBuy, mat = MatBuy },
-    { header = "Craft all", width = 110, sort = "craft", crate = CrateCraft, mat = MatCraft },
-    { header = "Craft saves", width = 105, crate = CrateSaved, mat = MatSaved },
-    { header = "Favor", width = 55, sort = "favor", crate = CrateFavor, mat = Blank },
-    { header = "Gold / favor", width = 105, sort = "perFavor", crate = CratePerFavor, mat = MatPerFavor },
+    { header = "AH unit", crate = Blank, mat = MatUnit },
+    { header = "Per craft", crate = Blank, mat = MatPerCraft },
+    { header = "Buy all", sort = "buy", crate = CrateBuy, mat = MatBuy },
+    { header = "Craft all", sort = "craft", crate = CrateCraft, mat = MatCraft },
+    { header = "Craft saves", crate = CrateSaved, mat = MatSaved },
+    { header = "Favor", sort = "favor", crate = CrateFavor, mat = Blank },
+    { header = "Gold / favor", sort = "perFavor", crate = CratePerFavor, mat = MatPerFavor },
   },
   market = {
     {
       header = "Qty",
-      width = 50,
       crate = function(n)
         return n.inst.listed or ""
       end,
@@ -248,56 +247,28 @@ local COLUMNS = {
         return n.need
       end,
     },
-    { header = "Crate / unit", width = 100, sort = "price", crate = CratePrice, mat = MatUnit },
-    { header = "Per craft", width = 100, crate = Blank, mat = MatPerCraft },
-    { header = "Buy fill", width = 110, sort = "buy", crate = CrateBuy, mat = MatBuy },
-    { header = "Craft fill", width = 110, sort = "craft", crate = CrateCraft, mat = MatCraft },
-    { header = "Total", width = 105, sort = "total", crate = CrateTotal, mat = MatBest },
-    { header = "Favor", width = 55, sort = "favor", crate = CrateFavor, mat = Blank },
-    { header = "Gold / favor", width = 105, sort = "perFavor", crate = CratePerFavor, mat = MatPerFavor },
+    { header = "Crate / unit", sort = "price", crate = CratePrice, mat = MatUnit },
+    { header = "Per craft", crate = Blank, mat = MatPerCraft },
+    { header = "Buy fill", sort = "buy", crate = CrateBuy, mat = MatBuy },
+    { header = "Craft fill", sort = "craft", crate = CrateCraft, mat = MatCraft },
+    { header = "Total", sort = "total", crate = CrateTotal, mat = MatBest },
+    { header = "Favor", sort = "favor", crate = CrateFavor, mat = Blank },
+    { header = "Gold / favor", sort = "perFavor", crate = CratePerFavor, mat = MatPerFavor },
   },
 }
-local NUM_COLS = 8
+assert(#COLUMNS.bags == NUM_COLS and #COLUMNS.market == NUM_COLS, "every mode needs one column per WIDTHS entry")
 
--- Sort keys: getter + direction. Missing values always sort last.
+-- Sort keys -> the crate-root field they sort by. Missing values always sort last.
 local SORTS = {
-  name = {
-    get = function(r)
-      return r.inst.key
-    end,
-  },
-  price = {
-    get = function(r)
-      return r.inst.price
-    end,
-  },
-  buy = {
-    get = function(r)
-      return r.buyBest
-    end,
-  },
-  craft = {
-    get = function(r)
-      return r.craftBest
-    end,
-  },
-  total = {
-    get = function(r)
-      return r.total
-    end,
-  },
-  favor = {
-    get = function(r)
-      return r.favor
-    end,
-    desc = true,
-  },
-  perFavor = {
-    get = function(r)
-      return r.perFavor
-    end,
-  },
+  name = "key",
+  price = "price",
+  buy = "buyBest",
+  craft = "craftBest",
+  total = "total",
+  favor = "favor",
+  perFavor = "perFavor",
 }
+local SORT_DESC = { favor = true }
 
 local function Mode()
   return ns.db.mode == "market" and "market" or "bags"
@@ -309,11 +280,12 @@ local function SortKey()
 end
 
 local function SortRoots(roots)
-  local spec = SORTS[SortKey()]
+  local key = SortKey()
+  local field, desc = SORTS[key], SORT_DESC[key]
   table.sort(roots, function(a, b)
-    local va, vb = spec.get(a), spec.get(b)
+    local va, vb = a[field], b[field]
     if va ~= nil and vb ~= nil and va ~= vb then
-      if spec.desc then
+      if desc then
         return va > vb
       end
       return va < vb
@@ -324,12 +296,8 @@ local function SortRoots(roots)
     if vb ~= nil and va == nil then
       return false
     end
-    return a.inst.key < b.inst.key
+    return a.key < b.key
   end)
-end
-
-local function IsAHOpen()
-  return AuctionHouseFrame and AuctionHouseFrame:IsShown()
 end
 
 ---------------------------------------------------------------------------
@@ -360,7 +328,7 @@ local function BuildRow(button)
   for i = NUM_COLS, 1, -1 do
     local fs = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fs:SetJustifyH("RIGHT")
-    fs:SetWidth(COLUMNS.bags[i].width)
+    fs:SetWidth(WIDTHS[i])
     if anchor then
       fs:SetPoint("RIGHT", anchor, "LEFT", 0, 0)
     else
@@ -381,13 +349,11 @@ local function BuildRow(button)
   button.BuyButton:SetScript("OnClick", function(self)
     UI:OpenBuyWindow(self:GetParent().row)
   end)
-  button.BuyButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText("Buy materials")
-    GameTooltip:AddLine("Open a shopping list for filling this crate, with Buy buttons for each item.", 1, 1, 1, true)
-    GameTooltip:Show()
-  end)
-  button.BuyButton:SetScript("OnLeave", GameTooltip_Hide)
+  SimpleTooltip(
+    button.BuyButton,
+    "Buy materials",
+    "Open a shopping list for filling this crate, with Buy buttons for each item."
+  )
 
   button.Name:SetPoint("LEFT", button.Icon, "RIGHT", 4, 0)
   button.Name:SetPoint("RIGHT", button.BuyButton, "LEFT", -6, 0)
@@ -420,7 +386,7 @@ local function InitRow(button, row)
   end
   button.row = row
   local node = row.node
-  local hasChildren = node.children and #node.children > 0
+  local hasChildren = node.children ~= nil
 
   button.Toggle:ClearAllPoints()
   button.Toggle:SetPoint("LEFT", button, "LEFT", 4 + row.depth * INDENT, 0)
@@ -506,7 +472,7 @@ function UI:OnRowClick(button, mouseButton)
     InsertLink(itemID)
     return
   end
-  if node.children and #node.children > 0 then
+  if node.children then
     if IsControlKeyDown() or mouseButton == "RightButton" then
       Tree.SetAllExpanded({ node }, not Tree.IsExpanded(node))
     else
@@ -519,6 +485,27 @@ end
 local function AddMoneyLine(label, copper, r, g, b)
   if copper then
     GameTooltip:AddDoubleLine(label, ns.FormatMoney(copper, true), r or 1, g or 0.82, b or 0, 1, 1, 1)
+  end
+end
+
+-- "Crafting saves / costs extra" lines. mult scales the totals (crate count); the % stays per unit.
+local function AddSavingsLines(buy, craft, mult)
+  local diff = buy - craft
+  if diff >= 1 then
+    GameTooltip:AddDoubleLine(
+      "Crafting saves",
+      ns.FormatMoney(diff * mult, true) .. SavedPercent(buy, craft),
+      0.25,
+      1,
+      0.25,
+      0.25,
+      1,
+      0.25
+    )
+  elseif diff <= -1 then
+    GameTooltip:AddDoubleLine("Crafting costs extra", ns.FormatMoney(-diff * mult, true), 1, 0.25, 0.25, 1, 0.25, 0.25)
+  else
+    GameTooltip:AddLine("Buying and crafting cost the same.", 0.8, 0.8, 0.8)
   end
 end
 
@@ -560,7 +547,7 @@ function UI:ShowCrateTooltip(node)
   end
   GameTooltip:AddLine(" ")
   GameTooltip:AddDoubleLine("Fill with ONE of:", "buy  /  craft", 1, 1, 1, 0.6, 0.6, 0.6)
-  for _, child in ipairs(node.children) do
+  for _, child in ipairs(node.children or {}) do
     local right = child.buyCost and ns.FormatMoney(child.buyCost) or "—"
     if child.craftCost then
       right = right .. "  /  " .. ns.FormatMoney(child.craftCost)
@@ -586,30 +573,7 @@ function UI:ShowCrateTooltip(node)
     )
   end
   if node.buyBest and node.craftBest then
-    local diff = node.buyBest - node.craftBest
-    if diff >= 1 then
-      GameTooltip:AddDoubleLine(
-        "Crafting saves",
-        ns.FormatMoney(diff * count, true) .. SavedPercent(node.buyBest, node.craftBest),
-        0.25,
-        1,
-        0.25,
-        0.25,
-        1,
-        0.25
-      )
-    elseif diff <= -1 then
-      GameTooltip:AddDoubleLine(
-        "Crafting costs extra",
-        ns.FormatMoney(-diff * count, true),
-        1,
-        0.25,
-        0.25,
-        1,
-        0.25,
-        0.25
-      )
-    end
+    AddSavingsLines(node.buyBest, node.craftBest, count)
   end
   if node.total then
     AddMoneyLine("Total (crate + cheapest fill)", node.total, 0.25, 1, 0.25)
@@ -666,23 +630,7 @@ function UI:ShowMaterialTooltip(node)
     AddMoneyLine("Cost per craft", node.perCraftCost)
     AddMoneyLine("Craft " .. node.crafts .. "x (" .. node.crafts * r.yield .. " made)", node.craftCost)
     if node.buyCost and node.craftCost then
-      local diff = node.buyCost - node.craftCost
-      if diff >= 1 then
-        GameTooltip:AddDoubleLine(
-          "Crafting saves",
-          ns.FormatMoney(diff, true) .. SavedPercent(node.buyCost, node.craftCost),
-          0.25,
-          1,
-          0.25,
-          0.25,
-          1,
-          0.25
-        )
-      elseif diff <= -1 then
-        GameTooltip:AddDoubleLine("Crafting costs extra", ns.FormatMoney(-diff, true), 1, 0.25, 0.25, 1, 0.25, 0.25)
-      else
-        GameTooltip:AddLine("Buying and crafting cost the same.", 0.8, 0.8, 0.8)
-      end
+      AddSavingsLines(node.buyCost, node.craftCost, 1)
     elseif node.method then
       GameTooltip:AddLine(
         node.method == "craft" and "Can only be crafted (none listed)." or "Reagents not priced; buying only.",
@@ -718,26 +666,6 @@ end
 ---------------------------------------------------------------------------
 -- Window
 ---------------------------------------------------------------------------
-local function MakeButton(parent, text, width)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(width, 22)
-  b:SetText(text)
-  return b
-end
-
-local function SimpleTooltip(frame, title, body)
-  frame:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:SetText(title)
-    local text = type(body) == "function" and body() or body
-    if text then
-      GameTooltip:AddLine(text, 1, 1, 1, true)
-    end
-    GameTooltip:Show()
-  end)
-  frame:SetScript("OnLeave", GameTooltip_Hide)
-end
-
 function UI:SaveWindowGeometry()
   local f = self.window
   local point, _, relPoint, x, y = f:GetPoint(1)
@@ -770,46 +698,14 @@ function UI:CreateWindow()
     return self.window
   end
 
-  local f = CreateFrame("Frame", "WaylaidCrateScannerWindow", UIParent, "PortraitFrameTemplate")
-  f:SetToplevel(true)
-  f:SetFrameStrata("HIGH")
-  f:SetMovable(true)
+  local f = ns.CreatePanelWindow("WaylaidCrateScannerWindow", "Waylaid Crate Scanner", function()
+    UI:SaveWindowGeometry()
+  end)
   f:SetResizable(true)
-  f:SetClampedToScreen(true)
-  f:EnableMouse(true)
   if f.SetResizeBounds then
     f:SetResizeBounds(MIN_W, MIN_H)
   end
-  if f.SetTitle then
-    f:SetTitle("Waylaid Crate Scanner")
-  end
-  if f.SetPortraitToAsset then
-    f:SetPortraitToAsset(ns.ICON)
-  end
-  f:Hide()
   self.window = f
-  table.insert(UISpecialFrames, "WaylaidCrateScannerWindow") -- close with Escape
-  if not f.Bg then
-    local bg = f:CreateTexture(nil, "BACKGROUND", nil, -8)
-    bg:SetPoint("TOPLEFT", 2, -2)
-    bg:SetPoint("BOTTOMRIGHT", -2, 2)
-    bg:SetColorTexture(0.06, 0.06, 0.06, 0.95)
-  end
-
-  -- Drag by the title bar.
-  local drag = CreateFrame("Frame", nil, f)
-  drag:SetPoint("TOPLEFT", f, "TOPLEFT", 60, 0)
-  drag:SetPoint("TOPRIGHT", f, "TOPRIGHT", -28, 0)
-  drag:SetHeight(22)
-  drag:EnableMouse(true)
-  drag:RegisterForDrag("LeftButton")
-  drag:SetScript("OnDragStart", function()
-    f:StartMoving()
-  end)
-  drag:SetScript("OnDragStop", function()
-    f:StopMovingOrSizing()
-    UI:SaveWindowGeometry()
-  end)
 
   -- Resize grip.
   local grip = CreateFrame("Button", nil, f)
@@ -942,7 +838,7 @@ function UI:CreateWindow()
   local anchor
   for i = NUM_COLS, 1, -1 do
     local h = MakeHeaderButton("RIGHT")
-    h:SetWidth(COLUMNS.bags[i].width)
+    h:SetWidth(WIDTHS[i])
     if anchor then
       h:SetPoint("RIGHT", anchor, "LEFT", 0, 0)
     else
@@ -1299,19 +1195,11 @@ local function WindowShown()
   return UI.window and UI.window:IsShown()
 end
 
-local recomputePending = false
-local function QueueRecompute()
-  if recomputePending then
-    return
+local QueueRecompute = ns.Debounce(0.25, function()
+  if WindowShown() then
+    UI:Recompute()
   end
-  recomputePending = true
-  C_Timer.After(0.25, function()
-    recomputePending = false
-    if WindowShown() then
-      UI:Recompute()
-    end
-  end)
-end
+end)
 
 -- While the scanner waits out the AH search limit, tick the countdown once a second.
 local countdownTicking = false
@@ -1350,19 +1238,14 @@ ns:Listen("SCAN_FINISHED", function(reason)
   end
 end)
 
-local bagPending = false
-ns:RegisterEvent("BAG_UPDATE_DELAYED", function()
-  if bagPending or Mode() ~= "bags" or not WindowShown() then
-    return
-  end
-  bagPending = true
-  C_Timer.After(0.3, function()
-    bagPending = false
-    if WindowShown() then
+ns:RegisterEvent(
+  "BAG_UPDATE_DELAYED",
+  ns.Debounce(0.3, function()
+    if Mode() == "bags" and WindowShown() then
       UI:RefreshCrates()
     end
   end)
-end)
+)
 
 ns:RegisterEvent("AUCTION_HOUSE_SHOW", function()
   C_Timer.After(0, function()

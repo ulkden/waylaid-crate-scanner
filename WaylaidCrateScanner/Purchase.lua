@@ -126,7 +126,7 @@ function Purchase.Start(itemID, qty)
     ns.Print("finish or cancel the current purchase first.")
     return
   end
-  if not (AuctionHouseFrame and AuctionHouseFrame:IsShown()) then
+  if not ns.IsAHOpen() then
     ns.Print("open the Auction House to buy.")
     return
   end
