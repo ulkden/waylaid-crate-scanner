@@ -34,7 +34,7 @@ local DEFAULTS = {
   expanded = {}, -- [nodePath] = true/false
   useVendor = true, -- use vendor price for Weak Flux / Salt / Coal when cheaper
   mode = "bags", -- "bags" (crates in your bags) or "market" (every crate listed on the AH)
-  sort = {}, -- [mode] = sort key (see UI.lua SORTS); defaults: bags "name", market "perFavor"
+  sort = {}, -- [mode] = sort key (see UI.lua SORTS); unset = "perFavor" (gold per favor)
   favorOverrides = {}, -- ["Tier:quality"] = favor, set with /wcs favor
   window = {}, -- saved window position / size
   debug = false,
