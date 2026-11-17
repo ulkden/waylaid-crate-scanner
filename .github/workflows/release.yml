@@ -46,6 +46,7 @@ jobs:
       - name: Keep the zip as a run artifact
         uses: actions/upload-artifact@v7
         with:
-          name: WaylaidCrateScanner
           path: .release/*.zip
+          include-hidden-files: true # .release/ is a dot directory, skipped by default
+          archive: false # upload the zip as-is (named after the file), not zipped again
           if-no-files-found: error

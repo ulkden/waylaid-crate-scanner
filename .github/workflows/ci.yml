@@ -14,7 +14,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: luacheck
         uses: lunarmodules/luacheck@v1
@@ -35,7 +35,7 @@ jobs:
     name: Offline tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install LuaJIT
         run: sudo apt-get update && sudo apt-get install -y luajit
