@@ -640,6 +640,15 @@ check(P.Get(2770) ~= nil, "prices survive /reload")
 fire("PLAYER_ENTERING_WORLD", true, false)
 check(next(ns.db.prices) == nil, "prices are cleared at login")
 
+-- ---- expanded state -----------------------------------------------------
+check(rootByKey["Journeyman Fabrics"].path == "crate:Journeyman Fabrics", "bag tree paths are stable per crate type")
+ns.db.expanded["crate:Apprentice Ore#2"], ns.db.expanded["crate:Apprentice Ore"] = true, false
+fire("ADDON_LOADED", "WaylaidCrateScanner")
+check(
+  ns.db.expanded["crate:Apprentice Ore#2"] == nil and ns.db.expanded["crate:Apprentice Ore"] == false,
+  "old stack-numbered expanded paths are dropped at load"
+)
+
 -- ---- event isolation ----------------------------------------------------
 local secondRan = false
 ns:Listen("TEST_MESSAGE", function()
