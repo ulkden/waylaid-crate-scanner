@@ -65,7 +65,7 @@ Every crate row, and each of its fill-option rows, has a **Buy** button that ope
 - **Fill with**: choose the option; the cheapest is preselected (or the one whose row you clicked).
 - **Craft where cheaper**: on = buy reagents and craft intermediates wherever that's cheaper; off = buy the fill items outright. The crafting steps are listed in order (e.g. smelt bars, then bolts, then modulators).
 - **Also buy the crates**: adds the crate itself to the list (on by default in AH Market mode).
-- Each line shows Need, what you already **Have** in your bags (used first), and an editable **Buy** quantity with its estimated cost.
+- Each line shows Need, what you already **Have** (used first: your bags, plus anything you bought on the AH that is still waiting in your mailbox), and an editable **Buy** quantity with its estimated cost.
 
 Click **Buy N** to get a live price quote from the Auction House. The button then becomes **Confirm &lt;price&gt;**: click it to purchase, or the X to cancel. If the quote is more than 5% above the scanned estimate, the tooltip warns you. Quotes expire after a short time, like Blizzard's own buy dialog. Only stackable (commodity) items can be bought this way, which covers crates and all fill materials.
 

@@ -6,6 +6,7 @@
 ## X-License: GPL-3.0
 ## X-Website: https://github.com/ulkden/waylaid-crate-scanner
 ## SavedVariables: WaylaidCrateScannerDB
+## SavedVariablesPerCharacter: WaylaidCrateScannerCharDB
 ## OptionalDeps: LibStub, Auctionator
 ## IconTexture: Interface\AddOns\WaylaidCrateScanner\Media\waylaid_crate_icon_64
 ## AddonCompartmentFunc: WaylaidCrateScanner_OnAddonCompartmentClick
