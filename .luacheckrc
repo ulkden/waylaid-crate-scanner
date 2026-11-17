@@ -57,10 +57,12 @@ read_globals = {
   "CreateFrame",
   "CreateScrollBoxListLinearView",
   "GameTooltip_Hide",
+  "geterrorhandler",
   "GetTime",
   "IsControlKeyDown",
   "IsShiftKeyDown",
   "LibStub",
+  "securecallfunction",
 
   -- Frames, mixins and constants from FrameXML
   "AuctionHouseFrame",
@@ -98,6 +100,7 @@ files["tools/test_harness.lua"] = {
     "CreateScrollBoxListLinearView",
     "GameTooltip",
     "GameTooltip_Hide",
+    "geterrorhandler",
     "IsControlKeyDown",
     "IsShiftKeyDown",
     "ScrollBoxConstants",

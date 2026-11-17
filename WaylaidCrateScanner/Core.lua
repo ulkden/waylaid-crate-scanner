@@ -58,6 +58,16 @@ end
 ---------------------------------------------------------------------------
 -- Events + a tiny internal message bus
 ---------------------------------------------------------------------------
+-- Each handler runs on its own: an error in one is reported (to BugSack etc.) but doesn't stop
+-- the others. securecallfunction does that while keeping the stack trace; pcall is the fallback.
+local SafeCall = securecallfunction
+  or function(fn, ...)
+    local ok, err = pcall(fn, ...)
+    if not ok then
+      geterrorhandler()(err)
+    end
+  end
+
 local eventFrame = CreateFrame("Frame")
 local eventHandlers = {}
 
@@ -75,7 +85,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     return
   end
   for i = 1, #list do
-    list[i](event, ...)
+    SafeCall(list[i], event, ...)
   end
 end)
 
@@ -91,7 +101,7 @@ function ns:Fire(msg, ...)
     return
   end
   for i = 1, #list do
-    list[i](...)
+    SafeCall(list[i], ...)
   end
 end
 

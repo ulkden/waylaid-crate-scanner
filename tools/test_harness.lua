@@ -190,6 +190,14 @@ strtrim = function(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 SlashCmdList = {}
+-- Errors in event handlers are reported through the error handler (not raised); collect them.
+local handlerErrors = {}
+geterrorhandler = function()
+  return function(err)
+    print("HANDLER ERROR: " .. tostring(err))
+    table.insert(handlerErrors, err)
+  end
+end
 NUM_TOTAL_EQUIPPED_BAG_SLOTS = 5
 AuctionHouseFrame = NewWidget() -- shown: the Auction House is open
 
@@ -631,6 +639,19 @@ fire("PLAYER_ENTERING_WORLD", false, true)
 check(P.Get(2770) ~= nil, "prices survive /reload")
 fire("PLAYER_ENTERING_WORLD", true, false)
 check(next(ns.db.prices) == nil, "prices are cleared at login")
+
+-- ---- event isolation ----------------------------------------------------
+local secondRan = false
+ns:Listen("TEST_MESSAGE", function()
+  error("boom")
+end)
+ns:Listen("TEST_MESSAGE", function()
+  secondRan = true
+end)
+ns:Fire("TEST_MESSAGE")
+check(secondRan and #handlerErrors == 1, "an erroring listener is reported and the next one still runs")
+table.remove(handlerErrors)
+check(#handlerErrors == 0, "no event handler raised an error during the tests")
 
 print(failures == 0 and "ALL PASSED" or (failures .. " FAILED"))
 os.exit(failures == 0 and 0 or 1)
