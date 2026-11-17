@@ -541,5 +541,12 @@ check(#ns.Scanner.queue == 1 and ns.Scanner.queue[1] == 99999, "scanner skips it
 ns.Scanner:Stop()
 runTimers()
 
+-- ---- session prices -----------------------------------------------------
+P.Store(2770, { { 10, 200 } })
+fire("PLAYER_ENTERING_WORLD", false, true)
+check(P.Get(2770) ~= nil, "prices survive /reload")
+fire("PLAYER_ENTERING_WORLD", true, false)
+check(next(ns.db.prices) == nil, "prices are cleared at login")
+
 print(failures == 0 and "ALL PASSED" or (failures .. " FAILED"))
 os.exit(failures == 0 and 0 or 1)
