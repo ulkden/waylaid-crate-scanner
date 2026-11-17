@@ -154,19 +154,25 @@ def visit(item_id, path, depth):
     info = items[item_id]
     if depth >= MAX_DEPTH or item_id in recipes:
         return
-    for sp in info["spells"]:
-        if not sp["reagents"]:
-            continue  # e.g. "Melt Key" style spells with no reagents
-        if any(r[0] in path or r[0] == item_id for r in sp["reagents"]):
-            continue  # would create a cycle (e.g. lesser <-> greater essence)
-        recipes[item_id] = {
-            "spell": sp["id"],
-            "yield": spell_yield(sp, item_id),
-            "reagents": [(r[0], r[2]) for r in sp["reagents"]],
-        }
-        for rid, _, _ in sp["reagents"]:
-            visit(rid, path | {item_id}, depth + 1)
-        break
+    usable = [
+        sp for sp in info["spells"]
+        # skip spells with no reagents (e.g. "Melt Key") and ones that would create a cycle
+        # (e.g. lesser <-> greater essence)
+        if sp["reagents"] and not any(r[0] in path or r[0] == item_id for r in sp["reagents"])
+    ]
+    if not usable:
+        return
+    sp = usable[0]
+    if len(usable) > 1:
+        others = ", ".join(f"{s['name']} ({s['id']})" for s in usable[1:])
+        problems.append(f"{info['name']}: {len(usable)} recipes; using {sp['name']} ({sp['id']}), not {others}")
+    recipes[item_id] = {
+        "spell": sp["id"],
+        "yield": spell_yield(sp, item_id),
+        "reagents": [(r[0], r[2]) for r in sp["reagents"]],
+    }
+    for rid, _, _ in sp["reagents"]:
+        visit(rid, path | {item_id}, depth + 1)
 
 
 for key, c in crates_out.items():
@@ -209,8 +215,9 @@ tiers = ["Apprentice", "Journeyman", "Expert", "Artisan"]
 
 
 def sort_key(k):
-    tier = next(i for i, t in enumerate(tiers) if t in k)
-    cat = next(i for i, c in enumerate(order) if k.endswith(c))
+    # Unknown categories/tiers sort last; this only affects the order of entries in Data.lua.
+    tier = next((i for i, t in enumerate(tiers) if t in k), len(tiers))
+    cat = next((i for i, c in enumerate(order) if k.endswith(c)), len(order))
     return (cat, tier, k)
 
 
