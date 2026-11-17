@@ -180,12 +180,30 @@ function Purchase.QuoteSecondsLeft()
   end
 end
 
+-- While a quote is open, tick twice a second: update the countdown and expire the quote on time.
+local function WatchQuote(p)
+  C_Timer.After(0.5, function()
+    if Purchase.pending ~= p or p.state ~= "quoted" then
+      return
+    end
+    local left = Purchase.QuoteSecondsLeft()
+    if left and left <= 0 then
+      Purchase.Cancel()
+      ns.Print("the price quote expired; click Buy again.")
+      return
+    end
+    ns:Fire("PURCHASE_UPDATED", p)
+    WatchQuote(p)
+  end)
+end
+
 ns:RegisterEvent("COMMODITY_PRICE_UPDATED", function(_, unitPrice, totalPrice)
   local p = Purchase.pending
   if p and p.state == "quoting" then
     p.state = "quoted"
     p.unitPrice, p.totalPrice = unitPrice, totalPrice
     ns:Fire("PURCHASE_UPDATED", p)
+    WatchQuote(p)
   end
 end)
 

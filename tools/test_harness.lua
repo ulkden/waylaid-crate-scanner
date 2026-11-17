@@ -566,6 +566,25 @@ if okBuy then
   check(ns.Purchase.pending and ns.Purchase.pending.state == "buying", "BuyUI: Confirm click buys")
   fire("COMMODITY_PURCHASE_SUCCEEDED")
   check(row1.BuyButton.text:find("^Buy") ~= nil, "BuyUI: button resets to Buy after the purchase")
+
+  -- Option costs are cached until prices change.
+  local costs = BuyUI.optionCosts
+  BuyUI.optionRows[2].scripts.OnClick(BuyUI.optionRows[2])
+  check(BuyUI.optionCosts == costs and BuyUI.optionIndex == 2, "BuyUI: choosing an option reuses the cached costs")
+  ns:Fire("PRICES_UPDATED")
+  check(BuyUI.optionCosts == nil, "BuyUI: a price change invalidates the option costs")
+  runTimers()
+
+  -- Quotes expire on their own (Purchase owns the countdown; no per-frame OnUpdate).
+  local quoteLeft = C_AuctionHouse.GetQuoteDurationRemaining
+  BuyUI:OnBuyClick(row1)
+  fire("COMMODITY_PRICE_UPDATED", 55, 55)
+  C_AuctionHouse.GetQuoteDurationRemaining = function()
+    return 0
+  end
+  runTimers()
+  check(ns.Purchase.pending == nil and purchaseCalls[#purchaseCalls] == "cancel", "purchase: quote expires on time")
+  C_AuctionHouse.GetQuoteDurationRemaining = quoteLeft
 end
 
 -- ---- scanner skip-fresh --------------------------------------------------

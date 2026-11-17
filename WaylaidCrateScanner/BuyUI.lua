@@ -168,7 +168,7 @@ function BuyUI:Create()
   local minus = MakeButton(f, "-", 24, 20)
   minus:SetPoint("LEFT", qtyLabel, "RIGHT", 8, 0)
   local crateBox = MakeNumberBox(f, 40, function(_, value)
-    BuyUI.crates = math.max(0, value or 0)
+    BuyUI.crates = math.max(1, value or 1)
     BuyUI.qtyOverrides = {}
     BuyUI:Refresh()
   end)
@@ -288,24 +288,6 @@ function BuyUI:Create()
   status:SetJustifyH("RIGHT")
   self.statusText = status
 
-  -- Expire quotes that the player doesn't confirm in time.
-  local elapsed = 0
-  f:SetScript("OnUpdate", function(_, dt)
-    elapsed = elapsed + dt
-    if elapsed < 0.5 then
-      return
-    end
-    elapsed = 0
-    local left = Purchase.QuoteSecondsLeft()
-    if left then
-      if left <= 0 then
-        Purchase.Cancel()
-        ns.Print("the price quote expired; click Buy again.")
-      else
-        BuyUI:UpdateRows()
-      end
-    end
-  end)
   f:SetScript("OnHide", function()
     if Purchase.IsBusy() then
       Purchase.Cancel()
@@ -328,11 +310,16 @@ function BuyUI:Open(inst, optionItemID, fromMarket)
   self.craft = true
   self.qtyOverrides = {}
   self.optionIndex = nil
+  self.optionCosts = nil
+  self.truncationShown = false
   for i, opt in ipairs(inst.options) do
     if opt[1] == optionItemID then
       self.optionIndex = i
     end
   end
+  self.crateIcon:SetTexture(inst.itemID and ns.ItemIcon(inst.itemID) or ns.ICON)
+  self.crateName:SetText(inst.name)
+  self.includeCratesCheck:SetEnabled(inst.itemID ~= nil)
 
   local f = self.frame
   if not f:IsShown() then
@@ -349,17 +336,21 @@ function BuyUI:Open(inst, optionItemID, fromMarket)
   self:Refresh()
 end
 
--- Cheapest option for one crate (used when no option was picked).
-local function OptionCosts(inst)
-  local costs, best = {}, nil
-  for i, opt in ipairs(inst.options) do
-    local node = ns.Tree.PriceMaterial(opt[1], opt[2])
-    costs[i] = node.best
-    if node.best and (not best or node.best < costs[best]) then
-      best = i
+-- Cost of filling one crate with each option, and the cheapest option's index. It depends only
+-- on prices, so it is cached until they change (or another crate is opened).
+function BuyUI:OptionCosts()
+  if not self.optionCosts then
+    local costs, best = {}, nil
+    for i, opt in ipairs(self.inst.options) do
+      local cost = ns.Tree.PriceMaterial(opt[1], opt[2]).best
+      costs[i] = cost
+      if cost and (not best or cost < costs[best]) then
+        best = i
+      end
     end
+    self.optionCosts, self.cheapestOption = costs, best
   end
-  return costs, best
+  return self.optionCosts, self.cheapestOption
 end
 
 function BuyUI:Refresh()
@@ -369,18 +360,14 @@ function BuyUI:Refresh()
   end
   local inst = self.inst
 
-  self.crateIcon:SetTexture(inst.itemID and ns.ItemIcon(inst.itemID) or ns.ICON)
-  self.crateName:SetText(inst.name)
   if not self.crateBox:HasFocus() then
     self.crateBox:SetText(tostring(self.crates))
   end
-  self.includeCrates = self.includeCrates and inst.itemID ~= nil
   self.includeCratesCheck:SetChecked(self.includeCrates)
-  self.includeCratesCheck:SetEnabled(inst.itemID ~= nil)
   self.craftCheck:SetChecked(self.craft)
 
   -- Options
-  local costs, cheapest = OptionCosts(inst)
+  local costs, cheapest = self:OptionCosts()
   self.optionIndex = self.optionIndex or cheapest or 1
   for i, row in ipairs(self.optionRows) do
     local opt = inst.options[i]
@@ -410,21 +397,33 @@ function BuyUI:Refresh()
   })
 
   -- Layout: list header below the last visible option.
+  -- (LEFT/RIGHT anchors are set once in Create; only TOP moves.)
   local lastOption = self.optionRows[math.min(#inst.options, MAX_OPTIONS)]
-  self.listHeader:ClearAllPoints()
-  self.listHeader:SetPoint("LEFT", f, "LEFT", 10, 0)
-  self.listHeader:SetPoint("RIGHT", f, "RIGHT", -10, 0)
   self.listHeader:SetPoint("TOP", lastOption, "BOTTOM", 0, -12)
 
+  -- Shopping rows: what doesn't change until the plan does is drawn here; UpdateRows draws
+  -- the quantity, cost and Buy button, which change with typing and purchases.
   local shopping = self.plan.shopping
   for i, row in ipairs(self.rows) do
     local item = shopping[i]
     row.item = item
     row.itemID = item and item.itemID
     row:SetShown(item ~= nil)
+    if item then
+      row.Bg:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.03 or 0)
+      row.Icon:SetTexture(ns.ItemIcon(item.itemID))
+      local name = ns.ItemColorHex(item.itemID) .. item.name .. "|r"
+      if item.isCrate then
+        name = name .. COLOR_GREY .. "  (crate)|r"
+      end
+      row.Name:SetText(name)
+      row.Need:SetText(item.need)
+      row.Have:SetText(item.have > 0 and (COLOR_GREEN .. item.have .. "|r") or (COLOR_GREY .. "0|r"))
+    end
   end
   local shown = math.min(#shopping, MAX_ROWS)
-  if #shopping > MAX_ROWS then
+  if #shopping > MAX_ROWS and not self.truncationShown then
+    self.truncationShown = true
     ns.Print("shopping list truncated to " .. MAX_ROWS .. " items.")
   end
 
@@ -438,9 +437,6 @@ function BuyUI:Refresh()
     end
     table.insert(lines, text)
   end
-  self.craftText:ClearAllPoints()
-  self.craftText:SetPoint("LEFT", f, "LEFT", 16, 0)
-  self.craftText:SetPoint("RIGHT", f, "RIGHT", -16, 0)
   self.craftText:SetPoint("TOP", shown > 0 and self.rows[shown] or self.listHeader, "BOTTOM", 0, -10)
   if #lines > 0 then
     self.craftText:SetText("|cffffd100Then craft, in this order:|r  " .. table.concat(lines, "  >  "))
@@ -475,18 +471,9 @@ function BuyUI:UpdateRows()
   local ahOpen = IsAHOpen()
   local total, allPriced = 0, true
 
-  for i, row in ipairs(self.rows) do
+  for _, row in ipairs(self.rows) do
     local item = row.item
     if item then
-      row.Bg:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.03 or 0)
-      row.Icon:SetTexture(ns.ItemIcon(item.itemID))
-      local name = ns.ItemColorHex(item.itemID) .. ns.ItemName(item.itemID) .. "|r"
-      if item.isCrate then
-        name = name .. COLOR_GREY .. "  (crate)|r"
-      end
-      row.Name:SetText(name)
-      row.Need:SetText(item.need)
-      row.Have:SetText(item.have > 0 and (COLOR_GREEN .. item.have .. "|r") or (COLOR_GREY .. "0|r"))
       local qty = RowQty(row)
       if not row.Qty:HasFocus() then
         row.Qty:SetText(tostring(qty))
@@ -624,7 +611,10 @@ local QueueRefresh = ns.Debounce(0.3, function()
 end)
 
 ns:RegisterEvent("BAG_UPDATE_DELAYED", QueueRefresh)
-ns:Listen("PRICES_UPDATED", QueueRefresh)
+ns:Listen("PRICES_UPDATED", function()
+  BuyUI.optionCosts = nil
+  QueueRefresh()
+end)
 ns:Listen("ITEM_DATA_UPDATED", QueueRefresh)
 ns:RegisterEvent("AUCTION_HOUSE_SHOW", function()
   C_Timer.After(0, function()
