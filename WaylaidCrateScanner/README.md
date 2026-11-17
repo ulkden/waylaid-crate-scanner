@@ -4,7 +4,7 @@ Spend less gold on Waylaid Crates. This addon finds the cheapest way to fill eac
 
 For WoW: Forever.
 
-![The Crates tab on the Auction House, next to Auctionator](ADD-SCREENSHOT-URL)
+![AH Market: every crate on the Auction House, sorted by gold per Merchant's Favor](https://raw.githubusercontent.com/ulkden/waylaid-crate-scanner/main/media/screenshot_ah_market.png)
 
 ## What it does for you
 
@@ -18,7 +18,7 @@ For WoW: Forever.
 2. Click **My Crates**, then **Scan Prices**.
 3. Each crate shows its cheapest fill. Green marks the best option. Click a row to see what goes into it.
 
-![The scanner window](ADD-SCREENSHOT-URL)
+![My Crates: the cheapest way to fill each crate in your bags](https://raw.githubusercontent.com/ulkden/waylaid-crate-scanner/main/media/screenshot_scanner_window.png)
 
 ## Find the cheapest Merchant's Favor
 
@@ -36,7 +36,7 @@ Gold / favor counts the crate's price plus the cheapest way to fill it.
 
 The list counts what is in your bags and what you bought that is still in your mailbox. You won't buy the same thing twice.
 
-![The Buy window](ADD-SCREENSHOT-URL)
+![The Buy window: a shopping list and crafting steps for two crates](https://raw.githubusercontent.com/ulkden/waylaid-crate-scanner/main/media/screenshot_buy_window.png)
 
 ## Good to know
 

@@ -71,7 +71,7 @@ WaylaidCrateScanner/
   BuyUI.lua     "Buy Crate Materials" window: crate count, option choice, shopping list with Buy/Confirm buttons
   Media/        in-game textures (waylaid_crate_icon_64.tga: addon list / compartment / window icon)
   Libs/         vendored LibStub + LibAHTab (do not edit; not linted or formatted)
-media/          logo source art (SVG + 512px PNG) for the README and CurseForge; not shipped in-game
+media/          logo source art (SVG + 512px PNG) and screenshots (max 800px wide) for the README and CurseForge; not shipped in-game
 tools/
   crates.py         crate names + material name->ID hints (input to gen.py)
   gen.py            builds Data.lua from Wowhead Forever (crate tooltips + "created by" recipes)
