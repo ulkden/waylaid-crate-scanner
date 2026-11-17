@@ -40,8 +40,8 @@ end
 
 --- inst = { key, name, itemID, count, options = { {itemID, qty}, ... } }
 function Tree.BuildRoot(inst, path)
-  -- key/price are copied onto the root so the UI can sort roots by plain field name.
-  local root = { kind = "crate", inst = inst, key = inst.key, price = inst.price, path = path }
+  -- key is copied onto the root so the UI can sort roots by plain field name (as with price, best...).
+  local root = { kind = "crate", inst = inst, key = inst.key, path = path }
   local children = {}
   for i, opt in ipairs(inst.options) do
     local itemID, qty = opt[1], opt[2]
@@ -56,23 +56,25 @@ function Tree.BuildRoot(inst, path)
   return root
 end
 
---- crates: output of ns.ScanBags().
+--- crates: output of ns.ScanBags(). Crates in your bags start expanded.
 function Tree.Build(crates)
   local roots, seenKeys = {}, {}
   for _, inst in ipairs(crates) do
     seenKeys[inst.key] = (seenKeys[inst.key] or 0) + 1
-    table.insert(roots, Tree.BuildRoot(inst, "crate:" .. inst.key .. "#" .. seenKeys[inst.key]))
+    local root = Tree.BuildRoot(inst, "crate:" .. inst.key .. "#" .. seenKeys[inst.key])
+    root.defaultExpanded = true
+    table.insert(roots, root)
   end
   return roots
 end
 
---- One root per crate type (used by the market scan).
---- onlyListed = true keeps just the crate types currently listed on the AH (from the last scan).
-function Tree.BuildMarket(onlyListed)
-  local roots = {}
-  for key, def in pairs(ns.Crates) do
-    local listed = def.itemID and ns.Prices.Listed(def.itemID)
-    if not onlyListed or (listed and listed > 0) then
+-- One root per crate type, for AH Market mode. A tree's shape depends only on Data.lua, so these
+-- are built once; Tree.Market refreshes each crate's own price and Tree.Compute its costs.
+local marketRoots
+local function MarketRoots()
+  if not marketRoots then
+    marketRoots = {}
+    for key, def in pairs(ns.Crates) do
       local inst = {
         key = key,
         name = "Waylaid Crate: " .. key,
@@ -80,10 +82,23 @@ function Tree.BuildMarket(onlyListed)
         quality = def.quality,
         count = 1,
         options = def.options,
-        price = def.itemID and ns.Prices.BuyCost(def.itemID, 1) or nil,
-        listed = listed,
       }
-      table.insert(roots, Tree.BuildRoot(inst, "market:" .. key))
+      table.insert(marketRoots, Tree.BuildRoot(inst, "market:" .. key))
+    end
+  end
+  return marketRoots
+end
+
+--- Market roots with each crate's own AH price and listed quantity refreshed.
+--- onlyListed = true keeps just the crate types currently listed on the AH (from the last scan).
+function Tree.Market(onlyListed)
+  local roots = {}
+  for _, root in ipairs(MarketRoots()) do
+    local itemID = root.inst.itemID
+    root.listed = itemID and ns.Prices.Listed(itemID)
+    root.price = itemID and ns.Prices.BuyCost(itemID, 1) or nil
+    if not onlyListed or (root.listed and root.listed > 0) then
+      table.insert(roots, root)
     end
   end
   return roots
@@ -94,7 +109,7 @@ end
 local marketItems
 function Tree.MarketScanItems()
   if not marketItems then
-    marketItems = Tree.CollectItems(Tree.BuildMarket(false))
+    marketItems = Tree.CollectItems(MarketRoots())
     for _, def in pairs(ns.Crates) do
       if def.itemID then
         marketItems[def.itemID] = true
@@ -189,70 +204,78 @@ local function CompareOptions(a, b)
   return a.order < b.order
 end
 
---- Returns a summary table:
----   best      = total of the cheapest fills (crafting allowed) across all crates
----   buyOnly   = total of the cheapest purely-purchased fills (no crafting at all)
----   allPriced / allBuyPriced = false if some crate couldn't be priced that way
----
---- Each crate root gets:
+--- Prices every root in one pass. Each crate root gets:
 ---   best / bestChild           cheapest option, crafting allowed
 ---   buyBest / buyBestChild     cheapest option bought outright from the AH
 ---   craftBest / craftBestChild cheapest option crafted yourself (nil if nothing is craftable)
----   total                      crate's own AH price + best (market scan only)
+---   total                      crate's own AH price + best (market only; price set by Tree.Market)
+---   favor / favorConfirmed / perFavor, and isBestValue on the root with the lowest perFavor
+--- Returns a summary:
+---   best      = total of the cheapest fills (crafting allowed) across all crates
+---   buyOnly   = total of the cheapest purely-purchased fills (no crafting at all)
+---   allPriced / allBuyPriced = false if some crate couldn't be priced that way
+---   crates    = number of crates; favor = total favor; bestValue = the best-value root (or nil)
 function Tree.Compute(roots)
-  local summary = { best = 0, buyOnly = 0, allPriced = true, allBuyPriced = true }
+  local summary = { crates = 0, best = 0, buyOnly = 0, allPriced = true, allBuyPriced = true }
   for _, root in ipairs(roots) do
-    root.best, root.bestChild = nil, nil
-    root.buyBest, root.buyBestChild = nil, nil
-    root.craftBest, root.craftBestChild = nil, nil
+    local inst = root.inst
+    -- Merchant's Favor: cost per favor = (crate price, if bought on the AH) + fill cost, / favor.
+    local favor, confirmed = ns.GetFavor(inst.key, inst.quality)
+    local divisor = favor and favor > 0 and favor
+    local base = root.price or 0
+
+    local best, bestChild, buyBest, buyBestChild, craftBest, craftBestChild
     for _, child in ipairs(root.children or NONE) do
       ComputeMaterial(child)
-      child.isCheapest, child.isCheapestBuy = false, false
-      if child.best and (root.best == nil or child.best < root.best) then
-        root.best, root.bestChild = child.best, child
+      local cost = child.best
+      child.isCheapest = false
+      child.perFavor = cost and divisor and (base + cost) / divisor or nil
+      if cost and (not best or cost < best) then
+        best, bestChild = cost, child
       end
-      if child.buyCost and (root.buyBest == nil or child.buyCost < root.buyBest) then
-        root.buyBest, root.buyBestChild = child.buyCost, child
+      if child.buyCost and (not buyBest or child.buyCost < buyBest) then
+        buyBest, buyBestChild = child.buyCost, child
       end
-      if child.craftCost and (root.craftBest == nil or child.craftCost < root.craftBest) then
-        root.craftBest, root.craftBestChild = child.craftCost, child
+      if child.craftCost and (not craftBest or child.craftCost < craftBest) then
+        craftBest, craftBestChild = child.craftCost, child
       end
     end
-    local price = root.inst.price
-    root.total = (price and root.best) and (price + root.best) or nil
-
-    -- Merchant's Favor: cost per favor = (crate price, if bought on the AH) + fill cost, / favor.
-    local favor, confirmed = ns.GetFavor(root.inst.key, root.inst.quality)
-    root.favor, root.favorConfirmed = favor, confirmed
-    local base = price or 0
-    root.perFavor = (favor and favor > 0 and root.best) and (base + root.best) / favor or nil
-    for _, child in ipairs(root.children or NONE) do
-      child.perFavor = (favor and favor > 0 and child.best) and (base + child.best) / favor or nil
-    end
-    if favor then
-      summary.favor = (summary.favor or 0) + favor * root.inst.count
-    end
-    if root.bestChild then
-      root.bestChild.isCheapest = true
-    end
-    if root.buyBestChild then
-      root.buyBestChild.isCheapestBuy = true
+    if bestChild then
+      bestChild.isCheapest = true
     end
     if root.children then
       table.sort(root.children, CompareOptions)
     end
 
-    local count = root.inst.count
-    if root.best then
-      summary.best = summary.best + root.best * count
+    root.best, root.bestChild = best, bestChild
+    root.buyBest, root.buyBestChild = buyBest, buyBestChild
+    root.craftBest, root.craftBestChild = craftBest, craftBestChild
+    root.total = root.price and best and (root.price + best) or nil
+    root.favor, root.favorConfirmed = favor, confirmed
+    root.perFavor = best and divisor and (base + best) / divisor or nil
+    root.isBestValue = false
+    if root.perFavor and (not summary.bestValue or root.perFavor < summary.bestValue.perFavor) then
+      summary.bestValue = root
+    end
+
+    local count = inst.count
+    summary.crates = summary.crates + count
+    if favor then
+      summary.favor = (summary.favor or 0) + favor * count
+    end
+    if best then
+      summary.best = summary.best + best * count
     else
       summary.allPriced = false
     end
-    if root.buyBest then
-      summary.buyOnly = summary.buyOnly + root.buyBest * count
+    if buyBest then
+      summary.buyOnly = summary.buyOnly + buyBest * count
     else
       summary.allBuyPriced = false
     end
+  end
+  if summary.bestValue then
+    summary.bestValue.isBestValue = true
   end
   return summary
 end
@@ -261,7 +284,7 @@ end
 function Tree.IsExpanded(node)
   local v = ns.db.expanded[node.path]
   if v == nil then
-    return node.kind == "crate" and node.path:sub(1, 6) == "crate:"
+    return node.defaultExpanded == true
   end
   return v
 end

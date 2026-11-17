@@ -176,8 +176,8 @@ local function CrateSaved(node)
 end
 
 local function CratePrice(node)
-  if node.inst.price then
-    return Money(node.inst.price)
+  if node.price then
+    return Money(node.price)
   end
   return COLOR_GREY .. "?|r"
 end
@@ -241,7 +241,7 @@ local COLUMNS = {
     {
       header = "Qty",
       crate = function(n)
-        return n.inst.listed or ""
+        return n.listed or ""
       end,
       mat = function(n)
         return n.need
@@ -529,10 +529,10 @@ function UI:ShowCrateTooltip(node)
       )
     end
   end
-  if inst.price then
-    AddMoneyLine("Crate price on AH", inst.price)
-    if inst.listed then
-      GameTooltip:AddDoubleLine("Crates listed", inst.listed, 1, 0.82, 0, 1, 1, 1)
+  if node.price then
+    AddMoneyLine("Crate price on AH", node.price)
+    if node.listed then
+      GameTooltip:AddDoubleLine("Crates listed", node.listed, 1, 0.82, 0, 1, 1, 1)
     end
   end
   GameTooltip:AddLine(" ")
@@ -818,9 +818,19 @@ function UI:CreateWindow()
     h:SetScript("OnClick", function(btn)
       if btn.sortKey then
         ns.db.sort[Mode()] = btn.sortKey
-        UI:Recompute()
+        UI:Resort()
       end
     end)
+    -- title/sortKey are set per mode by UpdateHeaders; only sortable headers show a tooltip.
+    h:SetScript("OnEnter", function(btn)
+      if btn.sortKey then
+        GameTooltip:SetOwner(btn, "ANCHOR_TOP")
+        GameTooltip:SetText(btn.title)
+        GameTooltip:AddLine("Click to sort by this column.", 1, 1, 1, true)
+        GameTooltip:Show()
+      end
+    end)
+    h:SetScript("OnLeave", GameTooltip_Hide)
     return h
   end
 
@@ -958,25 +968,24 @@ function UI:SetMode(mode)
     return
   end
   ns.db.mode = mode
-  self:RefreshCrates()
+  if mode == "bags" then
+    self:RefreshCrates()
+  else
+    self:Recompute()
+  end
 end
 
+-- Header labels, active sort and mode buttons: they change only with the mode or the sort.
 function UI:UpdateHeaders()
   local mode = Mode()
-  local columns = COLUMNS[mode]
   local active = SortKey()
-  for i, col in ipairs(columns) do
+  for i, col in ipairs(COLUMNS[mode]) do
     local h = self.headers[i]
-    h.sortKey = col.sort
+    h.sortKey, h.title = col.sort, col.header
     h.Text:SetText((col.sort and col.sort == active) and (COLOR_GREEN .. col.header .. "|r") or col.header)
-    if col.sort then
-      SimpleTooltip(h, col.header, "Click to sort by this column.")
-    else
-      h:SetScript("OnEnter", nil)
-      h:SetScript("OnLeave", nil)
-    end
   end
   local nameText = mode == "market" and "Crate type / material" or "Crate / material"
+  self.nameHeader.title = nameText
   self.nameHeader.Text:SetText(active == "name" and (COLOR_GREEN .. nameText .. "|r") or nameText)
 
   if mode == "market" then
@@ -986,54 +995,52 @@ function UI:UpdateHeaders()
     self.bagsModeButton:LockHighlight()
     self.marketModeButton:UnlockHighlight()
   end
+end
+
+-- The Scan button follows the scanner and whether the AH is open.
+function UI:UpdateScanButton()
   if Scanner:IsRunning() then
     self.scanButton:SetText("Stop")
     self.scanButton:Enable()
   else
-    self.scanButton:SetText(mode == "market" and "Scan Market" or "Scan Prices")
-    self.scanButton:SetEnabled(IsAHOpen() and true or false)
+    self.scanButton:SetText(Mode() == "market" and "Scan Market" or "Scan Prices")
+    self.scanButton:SetEnabled(IsAHOpen())
   end
 end
 
+--- Rescans your bags and rebuilds their trees (My Crates mode), then reprices.
 function UI:RefreshCrates()
   if not self.window then
     return
   end
   if Mode() == "bags" then
-    self.crates = ns.ScanBags()
+    self.bagRoots = Tree.Build(ns.ScanBags())
+    self.bagItems = Tree.CollectItems(self.bagRoots)
   end
   self:Recompute()
 end
 
-local function MarkBestValue(roots)
-  local best
-  for _, r in ipairs(roots) do
-    r.isBestValue = false
-    if r.perFavor and (not best or r.perFavor < best.perFavor) then
-      best = r
-    end
-  end
-  if best then
-    best.isBestValue = true
-  end
-  return best
-end
-
+--- Reprices the current trees (their shape is reused; only costs change) and redraws.
 function UI:Recompute()
   if not self.window then
     return
   end
   if Mode() == "market" then
-    self.roots = Tree.BuildMarket(true)
+    self.roots = Tree.Market(true)
   else
-    self.roots = Tree.Build(self.crates or ns.ScanBags())
+    self.roots = self.bagRoots or {}
   end
   self.summary = Tree.Compute(self.roots)
-  self.bestValue = MarkBestValue(self.roots)
+  self:Resort()
+  self:UpdateFooter()
+  self:UpdateStatus()
+end
+
+--- Re-sorts and redraws without repricing (sort header clicks).
+function UI:Resort()
   SortRoots(self.roots)
   self:UpdateHeaders()
   self:RefreshList()
-  self:UpdateStatus()
 end
 
 function UI:RefreshList()
@@ -1070,12 +1077,12 @@ function UI:RefreshList()
   self.empty:Show()
 end
 
+-- Status line (scan progress or price age) and the Scan button.
 function UI:UpdateStatus()
   if not self.window then
     return
   end
   local mode = Mode()
-  local roots = self.roots or {}
 
   if Scanner:IsRunning() then
     local i, n, itemID = Scanner:Progress()
@@ -1093,10 +1100,10 @@ function UI:UpdateStatus()
       self.status:SetText(string.format("Scanning %d/%d: %s", i, n, itemID and ns.ItemName(itemID) or ""))
     end
   else
-    local items = mode == "market" and Tree.MarketScanItems() or Tree.CollectItems(roots)
+    local items = mode == "market" and Tree.MarketScanItems() or self.bagItems or {}
     local age = FormatAge(Prices.OldestAge(items))
     local s
-    if mode == "bags" and #roots == 0 then
+    if mode == "bags" and not next(items) then
       s = ""
     elseif age then
       s = COLOR_GREY .. "Prices from " .. age .. "|r"
@@ -1108,9 +1115,14 @@ function UI:UpdateStatus()
     end
     self.status:SetText(s)
   end
-  self:UpdateHeaders()
+  self:UpdateScanButton()
+end
 
-  local best = self.bestValue
+-- Footer totals and best value: they change only when prices are recomputed.
+function UI:UpdateFooter()
+  local roots = self.roots
+  local sum = self.summary
+  local best = sum.bestValue
   local bestText = ""
   if best then
     bestText = "   Best value: "
@@ -1122,37 +1134,33 @@ function UI:UpdateStatus()
       .. (best.favorConfirmed and "" or COLOR_GREY .. " (est.)|r")
   end
 
-  if mode == "market" then
+  if Mode() == "market" then
     self.footer:SetText(
       #roots > 0 and (#roots .. " crate type" .. (#roots == 1 and "" or "s") .. " listed" .. bestText) or ""
     )
     return
   end
 
-  local numCrates = 0
-  for _, root in ipairs(roots) do
-    numCrates = numCrates + root.inst.count
-  end
+  local numCrates = sum.crates
   if numCrates == 0 then
     self.footer:SetText("")
     return
   end
-  local sum = self.summary or {}
   local s = numCrates .. " crate" .. (numCrates == 1 and "" or "s") .. "   Buy only: "
-  s = s .. ((sum.buyOnly or 0) > 0 and ns.FormatMoney(sum.buyOnly) or "?")
+  s = s .. (sum.buyOnly > 0 and ns.FormatMoney(sum.buyOnly) or "?")
   if not sum.allBuyPriced then
     s = s .. COLOR_ORANGE .. "*|r"
   end
-  s = s .. "   With crafting: " .. ((sum.best or 0) > 0 and ns.FormatMoney(sum.best) or "?")
+  s = s .. "   With crafting: " .. (sum.best > 0 and ns.FormatMoney(sum.best) or "?")
   if not sum.allPriced then
     s = s .. COLOR_ORANGE .. "*|r"
   end
-  if sum.allPriced and sum.allBuyPriced and (sum.buyOnly or 0) - (sum.best or 0) >= 1 then
+  if sum.allPriced and sum.allBuyPriced and sum.buyOnly - sum.best >= 1 then
     s = s .. "  " .. COLOR_GREEN .. "(saves " .. ns.FormatMoney(sum.buyOnly - sum.best) .. ")|r"
   end
   if (sum.favor or 0) > 0 then
     s = s .. "   " .. COLOR_FAVOR .. sum.favor .. " favor|r"
-    if sum.allPriced and (sum.best or 0) > 0 then
+    if sum.allPriced and sum.best > 0 then
       s = s .. " @ " .. ns.FormatMoney(sum.best / sum.favor) .. " each"
     end
   end
@@ -1169,7 +1177,7 @@ function UI:ToggleScan(force)
     items = Tree.MarketScanItems()
   else
     self:RefreshCrates()
-    items = Tree.CollectItems(self.roots or {})
+    items = self.bagItems
     if not next(items) then
       ns.Print("no Waylaid Crates in your bags — nothing to scan. Try AH Market mode.")
       return
@@ -1218,7 +1226,15 @@ ns:Listen("SCAN_PROGRESS", function()
   end
 end)
 ns:Listen("PRICES_UPDATED", QueueRecompute)
-ns:Listen("ITEM_DATA_UPDATED", QueueRecompute)
+-- New item data only changes names and icons: redraw the rows, no repricing.
+ns:Listen(
+  "ITEM_DATA_UPDATED",
+  ns.Debounce(0.25, function()
+    if WindowShown() then
+      UI:RefreshList()
+    end
+  end)
+)
 ns:Listen("SCAN_FINISHED", function(reason)
   if reason == "done" then
     ns.Print("price scan complete.")

@@ -356,7 +356,7 @@ check(rootByKey["Apprentice Ore"].craftBest == nil, "raw-material crate has no c
 check(sum.best == 240 + 160 + 1800 * 3, "summary multiplies by crate count")
 
 -- ---- market --------------------------------------------------------------
-local market = ns.Tree.BuildMarket(true)
+local market = ns.Tree.Market(true)
 ns.Tree.Compute(market)
 check(#market == 3, "market lists only crate types with listings (3)")
 local mByKey = {}
@@ -364,10 +364,12 @@ for _, r in ipairs(market) do
   mByKey[r.inst.key] = r
 end
 check(
-  mByKey["Apprentice Parts"].inst.price == 50 and mByKey["Apprentice Parts"].total == 210,
+  mByKey["Apprentice Parts"].price == 50 and mByKey["Apprentice Parts"].total == 210,
   "market total = crate price + cheapest fill"
 )
-check(mByKey["Apprentice Ore"].inst.listed == 2, "market crate listed quantity")
+check(mByKey["Apprentice Ore"].listed == 2, "market crate listed quantity")
+check(ns.Tree.Market(true)[1] == market[1], "market trees are built once and reused")
+check(sum.crates == 5 and sum.bestValue and sum.bestValue.isBestValue, "summary counts crates and marks best value")
 
 local scanItems = ns.Tree.MarketScanItems()
 local nScan, crateIDs = 0, 0
@@ -499,6 +501,24 @@ local okMarket, errMarket = pcall(function()
 end)
 check(okMarket, "UI: AH Market mode renders" .. (okMarket and "" or (": " .. tostring(errMarket))))
 check(#UI.roots == 3, "UI: AH Market shows the 3 listed crate types")
+local firstRoot = UI.roots[1]
+local buyHeader = UI.headers[4]
+buyHeader.scripts.OnClick(buyHeader)
+local sortedByBuy = true
+for i = 2, #UI.roots do
+  local a, b = UI.roots[i - 1].buyBest, UI.roots[i].buyBest
+  if a and b and a > b then
+    sortedByBuy = false
+  end
+end
+check(ns.db.sort.market == "buy" and sortedByBuy, "UI: clicking a header sorts by that column")
+local sameRoots = false
+for _, r in ipairs(UI.roots) do
+  sameRoots = sameRoots or r == firstRoot
+end
+check(sameRoots, "UI: re-sorting reuses the same trees")
+ns.db.sort.market = nil
+UI:Resort()
 
 local marketInst
 for _, r in ipairs(UI.roots) do
