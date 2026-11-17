@@ -30,7 +30,7 @@ function WaylaidCrateScanner_OnAddonCompartmentLeave()
 end
 
 local DEFAULTS = {
-  prices = {}, -- [itemID] = { t = time(), ladder = { {unitPrice, quantity}, ... } }
+  prices = {}, -- [itemID] = { t = time(), ladder = { {unitPrice, quantity}, ... } }; cleared at each login
   expanded = {}, -- [nodePath] = true/false
   useVendor = true, -- use vendor price for Weak Flux / Salt / Coal when cheaper
   mode = "bags", -- "bags" (crates in your bags) or "market" (every crate listed on the AH)
@@ -200,6 +200,13 @@ ns:RegisterEvent("ADDON_LOADED", function(_, name)
   ns.db = WaylaidCrateScannerDB
   ns.db.learnedCrates = nil -- obsolete: crate item IDs now ship in Data.lua
   ns.db.marketSort = nil -- obsolete: replaced by ns.db.sort
+end)
+
+-- Prices are only good for the current session: keep them through /reload, drop them at login.
+ns:RegisterEvent("PLAYER_ENTERING_WORLD", function(_, isInitialLogin)
+  if isInitialLogin then
+    wipe(ns.db.prices)
+  end
 end)
 
 ns:RegisterEvent("PLAYER_LOGIN", function()
