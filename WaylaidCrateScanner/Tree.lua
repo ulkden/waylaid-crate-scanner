@@ -56,12 +56,13 @@ function Tree.BuildRoot(inst, path)
   return root
 end
 
---- crates: output of ns.ScanBags(). Crates in your bags start expanded.
+--- crates: output of ns.ScanBags() (one per crate type). Crates in your bags start expanded.
+--- Paths depend only on the crate and its materials, so saved expanded state stays with the
+--- right crate and is bounded by the data.
 function Tree.Build(crates)
-  local roots, seenKeys = {}, {}
+  local roots = {}
   for _, inst in ipairs(crates) do
-    seenKeys[inst.key] = (seenKeys[inst.key] or 0) + 1
-    local root = Tree.BuildRoot(inst, "crate:" .. inst.key .. "#" .. seenKeys[inst.key])
+    local root = Tree.BuildRoot(inst, "crate:" .. inst.key)
     root.defaultExpanded = true
     table.insert(roots, root)
   end

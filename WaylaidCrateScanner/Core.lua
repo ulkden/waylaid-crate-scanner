@@ -241,6 +241,11 @@ ns:RegisterEvent("ADDON_LOADED", function(_, name)
   ns.charDB = WaylaidCrateScannerCharDB
   ns.db.learnedCrates = nil -- obsolete: crate item IDs now ship in Data.lua
   ns.db.marketSort = nil -- obsolete: replaced by ns.db.sort
+  for path in pairs(ns.db.expanded) do
+    if path:find("#", 1, true) then
+      ns.db.expanded[path] = nil -- obsolete: bag paths used to include a stack number ("#2")
+    end
+  end
 end)
 
 -- Prices are only good for the current session: keep them through /reload, drop them at login.
