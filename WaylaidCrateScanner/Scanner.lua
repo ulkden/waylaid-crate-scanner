@@ -3,6 +3,10 @@ local _, ns = ...
 -- Sequential Auction House price scanner. For each item it sends one search query
 -- (by item ID, like Blizzard's own UI) and records every listing's unit price and
 -- quantity, so the cost of buying N units can be computed exactly.
+--
+-- Every item we scan (all crates and all of their materials) is an AH commodity, so results
+-- always arrive as COMMODITY_SEARCH_RESULTS_UPDATED, sorted cheapest first. If a non-stackable
+-- item is ever added to Data.lua, it would also need an ITEM_SEARCH_RESULTS_UPDATED handler.
 
 local Scanner = {
   queue = {},
@@ -192,21 +196,6 @@ ns:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED", function(_, itemID)
   end
   local GetQuantity = C_AuctionHouse.GetCommoditySearchResultsQuantity
   Scanner:Finish(itemID, ladder, GetQuantity and GetQuantity(itemID))
-end)
-
-ns:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED", function(_, itemKey)
-  if not Scanner.running or not itemKey or itemKey.itemID ~= Scanner.current then
-    return
-  end
-  local ladder = {}
-  local n = C_AuctionHouse.GetNumItemSearchResults(itemKey) or 0
-  for i = 1, n do
-    local r = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
-    if r and r.buyoutAmount and r.quantity and r.quantity > 0 then
-      table.insert(ladder, { r.buyoutAmount / r.quantity, r.quantity })
-    end
-  end
-  Scanner:Finish(itemKey.itemID, ladder)
 end)
 
 ns:RegisterEvent("AUCTION_HOUSE_CLOSED", function()

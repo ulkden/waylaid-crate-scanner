@@ -15,11 +15,9 @@ function Prices.Get(itemID)
   return ns.db.prices[itemID]
 end
 
+--- ladder: { {unitPrice, quantity}, ... } cheapest first, as the AH returns commodity results.
 --- listed (optional): total quantity on the AH, if the search reported more than the ladder holds.
 function Prices.Store(itemID, ladder, listed)
-  table.sort(ladder, function(a, b)
-    return a[1] < b[1]
-  end)
   -- Keep the cheapest ~1000 units (far more than any crate needs), but count everything listed.
   local trimmed, kept, total = {}, 0, 0
   for _, step in ipairs(ladder) do
