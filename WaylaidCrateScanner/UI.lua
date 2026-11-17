@@ -777,7 +777,7 @@ function UI:CreateWindow()
   end)
   vendor:SetScript("OnClick", function(b)
     ns.db.useVendor = b:GetChecked() and true or false
-    UI:Recompute()
+    ns:Fire("PRICES_UPDATED")
   end)
   SimpleTooltip(
     vendor,
