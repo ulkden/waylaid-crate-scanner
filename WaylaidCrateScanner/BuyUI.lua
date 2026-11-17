@@ -240,7 +240,7 @@ function BuyUI:Create()
     BuyUI.includeCrates = b:GetChecked() and true or false
     BuyUI:Refresh()
   end)
-  self.includeCrates = includeCrates
+  self.includeCratesCheck = includeCrates
 
   local craft = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
   craft:SetSize(24, 24)
@@ -427,8 +427,8 @@ function BuyUI:Refresh()
     self.crateBox:SetText(tostring(self.crates))
   end
   self.includeCrates = self.includeCrates and inst.itemID ~= nil
-  self.includeCrates:SetChecked(self.includeCrates)
-  self.includeCrates:SetEnabled(inst.itemID ~= nil)
+  self.includeCratesCheck:SetChecked(self.includeCrates)
+  self.includeCratesCheck:SetEnabled(inst.itemID ~= nil)
   self.craftCheck:SetChecked(self.craft)
 
   -- Options

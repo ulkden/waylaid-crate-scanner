@@ -84,3 +84,9 @@ texture files after a full client restart, not `/reload`.
 - Keep `Data.lua` generated; never hand-edit it.
 - Prefer `C_*` namespaced APIs; guard anything that may not exist on older clients.
 - Keep the offline tests passing, and add a test to `tools/test_harness.lua` for new cost or detection logic.
+- UI code is covered by smoke tests that build the real windows against stub widgets: they record text,
+  shown state and checkbox state; any other capitalized method or child region is a no-op; scroll lists
+  render every row. They catch Lua errors that WoW would otherwise swallow silently (with Lua errors
+  hidden, a half-drawn window is the only symptom). When you add UI, extend the smoke test to open it.
+- Don't give a frame and a plain value the same field name (e.g. `self.includeCrates` for both a checkbox
+  and its boolean). Suffix widgets: `includeCratesCheck`, `crateBox`, `scanButton`.

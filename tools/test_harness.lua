@@ -5,16 +5,160 @@ local ns = {}
 
 -- ---- WoW API stubs -------------------------------------------------------
 local frames = {}
-function CreateFrame()
-  local f = { events = {} }
-  function f:RegisterEvent(e)
-    self.events[e] = true
-  end
-  function f:SetScript(_, fn)
+
+-- Generic widget stub. Known methods keep simple state (shown, text, checked, scripts) so tests can
+-- inspect what the UI rendered; any other method or field is a harmless no-op ("Any").
+local Any
+Any = setmetatable({}, {
+  __index = function()
+    return Any
+  end,
+  __call = function()
+    return nil
+  end,
+})
+local Widget = {}
+local WidgetMT = {
+  -- Capitalized keys are WoW methods or child regions (no-op stand-ins); lowercase keys are the
+  -- addon's own fields and stay nil until set, exactly like on a real frame.
+  __index = function(_, k)
+    if Widget[k] then
+      return Widget[k]
+    end
+    if type(k) == "string" and k:match("^%u") then
+      return Any
+    end
+    return nil
+  end,
+}
+local function NewWidget()
+  local w = setmetatable({ events = {}, scripts = {}, shown = true, text = "", checked = false }, WidgetMT)
+  table.insert(frames, w)
+  return w
+end
+function Widget:RegisterEvent(e)
+  self.events[e] = true
+end
+function Widget:SetScript(name, fn)
+  self.scripts[name] = fn
+  if name == "OnEvent" then
     self.onEvent = fn
   end
-  table.insert(frames, f)
-  return f
+end
+function Widget:Show()
+  local was = self.shown
+  self.shown = true
+  if not was and self.scripts.OnShow then
+    self.scripts.OnShow(self)
+  end
+end
+function Widget:Hide()
+  local was = self.shown
+  self.shown = false
+  if was and self.scripts.OnHide then
+    self.scripts.OnHide(self)
+  end
+end
+function Widget:SetShown(v)
+  if v then
+    self:Show()
+  else
+    self:Hide()
+  end
+end
+function Widget:IsShown()
+  return self.shown
+end
+function Widget:SetText(t)
+  self.text = t
+end
+function Widget:GetText()
+  return self.text
+end
+function Widget:SetChecked(v)
+  self.checked = v and true or false
+end
+function Widget:GetChecked()
+  return self.checked
+end
+function Widget:HasFocus()
+  return false
+end
+function Widget:CreateTexture()
+  return NewWidget()
+end
+function Widget:CreateFontString()
+  return NewWidget()
+end
+function Widget:GetTop()
+  return 600
+end
+function Widget:GetBottom()
+  return 100
+end
+function Widget:GetRight()
+  return 800
+end
+function Widget:GetWidth()
+  return 1000
+end
+function Widget:GetHeight()
+  return 600
+end
+function Widget:GetEffectiveScale()
+  return 1
+end
+function Widget:GetFrameLevel()
+  return 1
+end
+function Widget:GetPoint()
+  return "CENTER", nil, "CENTER", 0, 0
+end
+function Widget:IsObjectType()
+  return true
+end
+-- Scroll lists: render every element through the view's initializer, like the real ScrollBox.
+function Widget:SetElementInitializer(_, fn)
+  self.initializer = fn
+end
+function Widget:SetDataProvider(dp)
+  self.renderedRows = {}
+  local view = self.view
+  for _, elementData in ipairs(dp.items) do
+    local row = NewWidget()
+    if view and view.initializer then
+      view.initializer(row, elementData)
+    end
+    table.insert(self.renderedRows, row)
+  end
+end
+
+function CreateFrame()
+  local w = NewWidget()
+  w.shown = true
+  return w
+end
+UIParent = NewWidget()
+GameTooltip = NewWidget()
+UISpecialFrames = {}
+GameTooltip_Hide = function() end
+ScrollBoxConstants = { RetainScrollPosition = true }
+CreateScrollBoxListLinearView = function()
+  return NewWidget()
+end
+CreateDataProvider = function(items)
+  return { items = items or {} }
+end
+ScrollUtil = {
+  InitScrollBoxListWithScrollBar = function(scrollBox, _, view)
+    scrollBox.view = view
+  end,
+}
+IsShiftKeyDown = function()
+  return false
+end
+IsControlKeyDown = function()
+  return false
 end
 local function fire(event, ...)
   for _, f in ipairs(frames) do
@@ -47,11 +191,7 @@ strtrim = function(s)
 end
 SlashCmdList = {}
 NUM_TOTAL_EQUIPPED_BAG_SLOTS = 5
-AuctionHouseFrame = {
-  IsShown = function()
-    return true
-  end,
-}
+AuctionHouseFrame = NewWidget() -- shown: the Auction House is open
 
 local names
 local bagCounts = {} -- [itemID] = count, for C_Item.GetItemCount
@@ -328,6 +468,71 @@ fire("COMMODITY_PRICE_UPDATED", 10, 50)
 P2.Cancel()
 check(P2.pending == nil and purchaseCalls[#purchaseCalls] == "cancel", "purchase: Cancel releases the quote")
 runTimers()
+
+-- ---- UI smoke tests (stubbed widgets) ------------------------------------
+-- Builds the real windows and renders them, so errors in UI code (nil/boolean indexing, bad
+-- arguments to our own functions) fail here instead of silently in game.
+local UI, BuyUI = ns.UI, ns.BuyUI
+local okUI, errUI = pcall(function()
+  ns.db.mode = "bags"
+  UI:ShowWindow(false)
+  UI:Recompute()
+end)
+check(okUI, "UI: scanner window builds and renders in My Crates mode" .. (okUI and "" or (": " .. tostring(errUI))))
+check(UI.scrollBox.renderedRows and #UI.scrollBox.renderedRows > 0, "UI: My Crates list renders rows")
+local okMarket, errMarket = pcall(function()
+  UI:SetMode("market")
+end)
+check(okMarket, "UI: AH Market mode renders" .. (okMarket and "" or (": " .. tostring(errMarket))))
+check(#UI.roots == 3, "UI: AH Market shows the 3 listed crate types")
+
+local marketInst
+for _, r in ipairs(UI.roots) do
+  if r.inst.key == "Apprentice Parts" then
+    marketInst = r.inst
+  end
+end
+local okBuy, errBuy = pcall(function()
+  BuyUI:Open(marketInst, nil, true)
+  runTimers()
+end)
+check(okBuy, "BuyUI: opens and refreshes" .. (okBuy and "" or (": " .. tostring(errBuy))))
+if okBuy then
+  check(BuyUI.includeCratesCheck.checked == true, "BuyUI: market default ticks 'Also buy the crates'")
+  check(BuyUI.craftCheck.checked == true, "BuyUI: 'Craft where cheaper' on by default")
+  check(BuyUI.crateBox.text == "1", "BuyUI: market default is 1 crate")
+  local shownOptions = 0
+  for _, row in ipairs(BuyUI.optionRows) do
+    if row.shown then
+      shownOptions = shownOptions + 1
+      check(row.Text.text ~= "", "BuyUI: option row " .. row.index .. " has text")
+    end
+  end
+  check(shownOptions == #marketInst.options, "BuyUI: one option row per fill option (" .. shownOptions .. ")")
+  local selected = BuyUI.optionRows[BuyUI.optionIndex]
+  check(selected and selected.Text.text:find("cheapest", 1, true) ~= nil, "BuyUI: cheapest option preselected")
+  local shownRows = 0
+  for _, row in ipairs(BuyUI.rows) do
+    if row.shown then
+      shownRows = shownRows + 1
+      check(row.Name.text ~= "" and row.Qty.text ~= "", "BuyUI: shopping row " .. shownRows .. " has name and quantity")
+      check(row.BuyButton.text:find("^Buy") ~= nil, "BuyUI: shopping row " .. shownRows .. " has a Buy button")
+    end
+  end
+  check(shownRows == #BuyUI.plan.shopping and shownRows > 0, "BuyUI: only plan rows are shown (" .. shownRows .. ")")
+  check(BuyUI.plan.shopping[1].isCrate, "BuyUI: crate line listed first")
+
+  -- Buy -> quote -> Confirm button flow on the first shopping row.
+  local row1 = BuyUI.rows[1]
+  BuyUI:OnBuyClick(row1)
+  check(row1.BuyButton.text == "Getting price...", "BuyUI: Buy click shows 'Getting price...'")
+  fire("COMMODITY_PRICE_UPDATED", 55, 55)
+  check(row1.BuyButton.text:find("^Confirm") ~= nil, "BuyUI: quote turns the button into Confirm <price>")
+  BuyUI:OnBuyClick(row1)
+  check(ns.Purchase.pending and ns.Purchase.pending.state == "buying", "BuyUI: Confirm click buys")
+  fire("COMMODITY_PURCHASE_SUCCEEDED")
+  check(row1.BuyButton.text:find("^Buy") ~= nil, "BuyUI: button resets to Buy after the purchase")
+end
 
 -- ---- scanner skip-fresh --------------------------------------------------
 ns.Scanner:Start({ [2840] = true, [2771] = true, [99999] = true }, 300)

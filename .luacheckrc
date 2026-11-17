@@ -92,6 +92,17 @@ files["tools/test_harness.lua"] = {
     "strtrim",
     "time",
     "wipe",
+    -- widget/UI stubs for the UI smoke tests
+    "CreateDataProvider",
+    "CreateScrollBoxListLinearView",
+    "GameTooltip",
+    "GameTooltip_Hide",
+    "IsControlKeyDown",
+    "IsShiftKeyDown",
+    "ScrollBoxConstants",
+    "ScrollUtil",
+    "UIParent",
+    "UISpecialFrames",
   },
   ignore = { "131" }, -- unused global (stubs)
 }
