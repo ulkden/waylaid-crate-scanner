@@ -1,0 +1,20 @@
+# BigWigsMods/packager config: https://github.com/BigWigsMods/packager/wiki/Preparing-the-PackageMeta-File
+#
+# The addon lives in WaylaidCrateScanner/ rather than at the repo root. The packager copies the repo into
+# .release/WaylaidCrateScanner/, then move-folders lifts the inner addon folder up a level so the zip
+# holds WaylaidCrateScanner/WaylaidCrateScanner.toc. Anything else at the repo root ends up in that same
+# folder, so dev-only files are listed under ignore. Dotfiles (.github, .luacheckrc, ...) are always skipped.
+
+package-as: WaylaidCrateScanner
+
+move-folders:
+  WaylaidCrateScanner/WaylaidCrateScanner: WaylaidCrateScanner
+
+ignore:
+  - README.md
+  - CONTRIBUTING.md
+  - Makefile
+  - stylua.toml
+  - media
+  - tools
+  - WaylaidCrateScanner/README.md

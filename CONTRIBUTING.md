@@ -28,6 +28,26 @@ make hooks   # optional: run `make check` before every commit
 
 CI (GitHub Actions) runs `luacheck`, `stylua --check` and the tests on every push and pull request.
 
+## Releasing
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`. It runs the CI checks, then
+[BigWigsMods/packager](https://github.com/BigWigsMods/packager) builds the zip (`.pkgmeta` sets what goes in it),
+uploads it to CurseForge (project ID from `## X-Curse-Project-ID` in the TOC), and creates a GitHub release.
+
+```sh
+git tag -a v0.1.0 -m "v0.1.0"   # must be annotated; "alpha"/"beta" in the tag sets the CurseForge release type
+git push origin v0.1.0
+```
+
+- The tag becomes the version: the TOC says `## Version: @project-version@`, and the packager replaces it.
+- The changelog is generated from the commit messages since the previous tag.
+- The CurseForge upload needs the `CF_API_TOKEN` repository secret (generate one at
+  <https://authors.curseforge.com/#/settings/api-tokens>).
+- Dry run: start the Release workflow by hand from the Actions tab. It builds the zip and attaches it to the run,
+  without uploading.
+- The packager doesn't update the CurseForge project description. When `WaylaidCrateScanner/README.md` changes,
+  paste it into the CurseForge page by hand.
+
 ## Branching
 
 During initial development, changes go straight to `main`. Once the addon is ready for a general audience we'll switch to GitHub Flow (short-lived feature branches + pull requests).

@@ -2,9 +2,10 @@
 ## Title: Waylaid Crate Scanner
 ## Notes: Prices every way to fill Waylaid Crates (buy vs craft) and the gold per Merchant's Favor. Open from the Auction House "Crates" tab or /wcs.
 ## Author: ulkden
-## Version: 0.1.0
+## Version: @project-version@
 ## X-License: GPL-3.0
 ## X-Website: https://github.com/ulkden/waylaid-crate-scanner
+## X-Curse-Project-ID: 1811772
 ## SavedVariables: WaylaidCrateScannerDB
 ## SavedVariablesPerCharacter: WaylaidCrateScannerCharDB
 ## OptionalDeps: LibStub, Auctionator

@@ -1,0 +1,51 @@
+name: Release
+
+# Push an annotated tag to publish:   git tag -a v0.1.0 -m "v0.1.0" && git push origin v0.1.0
+# The packager picks the CurseForge release type from the tag: "alpha" in it -> alpha, "beta" -> beta,
+# anything else -> release. It also creates a GitHub release with the same zip and changelog.
+#
+# Run it by hand from the Actions tab (workflow_dispatch) for a dry run: it builds the zip and attaches it
+# to the run as an artifact, but uploads nothing.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    name: Package and release
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release
+    env:
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }} # repo secret: CurseForge API token
+      GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history for the generated changelog
+
+      - name: Package and upload
+        if: github.event_name == 'push'
+        uses: BigWigsMods/packager@v2
+
+      - name: Package only (dry run)
+        if: github.event_name != 'push'
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -d
+
+      - name: Keep the zip as a run artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: WaylaidCrateScanner
+          path: .release/*.zip
+          if-no-files-found: error
