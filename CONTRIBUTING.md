@@ -45,6 +45,7 @@ WaylaidCrateScanner/
   Scanner.lua   sequential AH search queue (C_AuctionHouse.SendSearchQuery), rate limited
   Tree.lua      builds crate -> option -> reagent trees and computes buy/craft/best costs, gold per favor
   Purchase.lua  shopping-list planner (bags first, buy vs craft) + two-step commodity purchase state machine
+  Widgets.lua   shared UI building blocks: colors, buttons, tooltips, the portrait window shell
   UI.lua        scanner window, AH tab launcher (via LibAHTab), rows, tooltips, sorting
   BuyUI.lua     "Buy Crate Materials" window: crate count, option choice, shopping list with Buy/Confirm buttons
   Media/        in-game textures (waylaid_crate_icon_64.tga: addon list / compartment / window icon)
@@ -55,6 +56,9 @@ tools/
   gen.py            builds Data.lua from Wowhead Forever (crate tooltips + "created by" recipes)
   test_harness.lua  offline tests
 ```
+
+Shared helpers live in `Core.lua` (`ns.Debounce`, `ns.IsAHOpen`, item/money helpers) and `Widgets.lua`;
+use them rather than writing a local copy.
 
 Modules communicate through `ns:Fire(msg)` / `ns:Listen(msg, fn)`. Messages: `SCAN_STARTED`, `SCAN_PROGRESS`, `SCAN_FINISHED`, `PRICES_UPDATED`, `ITEM_DATA_UPDATED`, `PURCHASE_UPDATED`.
 

@@ -80,6 +80,26 @@ function ns:Fire(msg, ...)
   end
 end
 
+--- Returns a function that, however often it is called, runs fn once `delay` seconds after the
+--- first call of a burst. Used to coalesce noisy events (bag updates, price updates, item data).
+function ns.Debounce(delay, fn)
+  local queued = false
+  local function run()
+    queued = false
+    fn()
+  end
+  return function()
+    if not queued then
+      queued = true
+      C_Timer.After(delay, run)
+    end
+  end
+end
+
+function ns.IsAHOpen()
+  return AuctionHouseFrame ~= nil and AuctionHouseFrame:IsShown()
+end
+
 ---------------------------------------------------------------------------
 -- Printing / debug
 ---------------------------------------------------------------------------
@@ -189,17 +209,12 @@ ns:RegisterEvent("PLAYER_LOGIN", function()
   end
 end)
 
-local itemInfoPending = false
-ns:RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
-  if itemInfoPending then
-    return
-  end
-  itemInfoPending = true
-  C_Timer.After(0.3, function()
-    itemInfoPending = false
+ns:RegisterEvent(
+  "GET_ITEM_INFO_RECEIVED",
+  ns.Debounce(0.3, function()
     ns:Fire("ITEM_DATA_UPDATED")
   end)
-end)
+)
 
 ---------------------------------------------------------------------------
 -- Slash commands

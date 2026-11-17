@@ -20,10 +20,6 @@ local SORTS = {
   { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false },
 }
 
-local function IsAHOpen()
-  return AuctionHouseFrame and AuctionHouseFrame:IsShown()
-end
-
 function Scanner:IsRunning()
   return self.running
 end
@@ -35,7 +31,7 @@ end
 --- itemSet: { [itemID] = true }
 --- maxAge: items whose price is younger than this many seconds are skipped (nil = scan everything)
 function Scanner:Start(itemSet, maxAge)
-  if not IsAHOpen() then
+  if not ns.IsAHOpen() then
     ns.Print("open the Auction House to scan.")
     return
   end
@@ -96,7 +92,7 @@ function Scanner:Next()
   if not self.running then
     return
   end
-  if not IsAHOpen() then
+  if not ns.IsAHOpen() then
     self:Stop("closed")
     return
   end

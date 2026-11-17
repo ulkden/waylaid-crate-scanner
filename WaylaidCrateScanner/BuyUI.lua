@@ -14,21 +14,9 @@ local OPTION_H = 18
 local MAX_OPTIONS = 6
 local MAX_ROWS = 16
 
-local COLOR_GREY = "|cff808080"
-local COLOR_GREEN = "|cff40ff40"
-local COLOR_ORANGE = "|cffff9933"
-local COLOR_RED = "|cffff4040"
-
-local function IsAHOpen()
-  return AuctionHouseFrame and AuctionHouseFrame:IsShown()
-end
-
-local function MakeButton(parent, text, width, height)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(width, height or 22)
-  b:SetText(text)
-  return b
-end
+local C = ns.COLOR
+local COLOR_GREY, COLOR_GREEN, COLOR_ORANGE, COLOR_RED = C.GREY, C.GREEN, C.ORANGE, C.RED
+local IsAHOpen, MakeButton = ns.IsAHOpen, ns.MakeButton
 
 local function MakeLabel(parent, font, text)
   local fs = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlightSmall")
@@ -162,41 +150,9 @@ function BuyUI:Create()
   if self.frame then
     return self.frame
   end
-  local f = CreateFrame("Frame", "WaylaidCrateScannerBuyWindow", UIParent, "PortraitFrameTemplate")
+  local f = ns.CreatePanelWindow("WaylaidCrateScannerBuyWindow", "Buy Crate Materials")
   f:SetSize(WIDTH, 400)
-  f:SetToplevel(true)
-  f:SetFrameStrata("HIGH")
-  f:SetMovable(true)
-  f:SetClampedToScreen(true)
-  f:EnableMouse(true)
-  if f.SetTitle then
-    f:SetTitle("Buy Crate Materials")
-  end
-  if f.SetPortraitToAsset then
-    f:SetPortraitToAsset(ns.ICON)
-  end
-  if not f.Bg then
-    local bg = f:CreateTexture(nil, "BACKGROUND", nil, -8)
-    bg:SetPoint("TOPLEFT", 2, -2)
-    bg:SetPoint("BOTTOMRIGHT", -2, 2)
-    bg:SetColorTexture(0.06, 0.06, 0.06, 0.95)
-  end
-  f:Hide()
-  table.insert(UISpecialFrames, "WaylaidCrateScannerBuyWindow")
   self.frame = f
-
-  local drag = CreateFrame("Frame", nil, f)
-  drag:SetPoint("TOPLEFT", f, "TOPLEFT", 60, 0)
-  drag:SetPoint("TOPRIGHT", f, "TOPRIGHT", -28, 0)
-  drag:SetHeight(22)
-  drag:EnableMouse(true)
-  drag:RegisterForDrag("LeftButton")
-  drag:SetScript("OnDragStart", function()
-    f:StartMoving()
-  end)
-  drag:SetScript("OnDragStop", function()
-    f:StopMovingOrSizing()
-  end)
 
   -- Crate + quantity ------------------------------------------------------
   local crateIcon = f:CreateTexture(nil, "ARTWORK")
@@ -252,19 +208,11 @@ function BuyUI:Create()
     BuyUI.qtyOverrides = {}
     BuyUI:Refresh()
   end)
-  craft:SetScript("OnEnter", function(b)
-    GameTooltip:SetOwner(b, "ANCHOR_TOP")
-    GameTooltip:SetText("Craft where cheaper")
-    GameTooltip:AddLine(
-      "On: buy reagents and craft intermediate items wherever that is cheaper than buying them.\nOff: buy the fill materials outright.",
-      1,
-      1,
-      1,
-      true
-    )
-    GameTooltip:Show()
-  end)
-  craft:SetScript("OnLeave", GameTooltip_Hide)
+  ns.SimpleTooltip(
+    craft,
+    "Craft where cheaper",
+    "On: buy reagents and craft intermediate items wherever that is cheaper than buying them.\nOff: buy the fill materials outright."
+  )
   self.craftCheck = craft
 
   -- Options ---------------------------------------------------------------
@@ -669,19 +617,11 @@ ns:Listen("PURCHASE_UPDATED", function(p, result)
   end
 end)
 
-local pending = false
-local function QueueRefresh()
-  if pending or not Shown() then
-    return
+local QueueRefresh = ns.Debounce(0.3, function()
+  if Shown() and not Purchase.IsBusy() then
+    BuyUI:Refresh()
   end
-  pending = true
-  C_Timer.After(0.3, function()
-    pending = false
-    if Shown() and not Purchase.IsBusy() then
-      BuyUI:Refresh()
-    end
-  end)
-end
+end)
 
 ns:RegisterEvent("BAG_UPDATE_DELAYED", QueueRefresh)
 ns:Listen("PRICES_UPDATED", QueueRefresh)
