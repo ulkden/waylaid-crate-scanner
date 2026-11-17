@@ -502,6 +502,19 @@ fire("COMMODITY_PRICE_UPDATED", 10, 50)
 P2.Cancel()
 check(P2.pending == nil and purchaseCalls[#purchaseCalls] == "cancel", "purchase: Cancel releases the quote")
 runTimers()
+-- A confirmed purchase can't be cancelled, gives up if its result never arrives, and a success
+-- that arrives after that is still recorded.
+P2.Start(2771, 3)
+fire("COMMODITY_PRICE_UPDATED", 12, 36)
+P2.Confirm()
+P2.Cancel()
+check(P2.pending and P2.pending.state == "buying", "purchase: a confirmed purchase can't be cancelled")
+runTimers() -- no result arrives
+check(P2.pending == nil, "purchase: a confirmed purchase without a result times out")
+fire("COMMODITY_PURCHASE_SUCCEEDED")
+check(P2.InMail(2771) == 3, "purchase: a success after the timeout is still recorded")
+ns.charDB.inMail[2771], ns.charDB.lastBags[2771] = nil, nil
+runTimers()
 
 -- ---- UI smoke tests (stubbed widgets) ------------------------------------
 -- Builds the real windows and renders them, so errors in UI code (nil/boolean indexing, bad

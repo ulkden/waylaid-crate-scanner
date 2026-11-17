@@ -14,6 +14,7 @@ ns.Purchase = Purchase
 
 local MAX_PLAN_DEPTH = 10
 local QUOTE_TIMEOUT = 10 -- seconds to wait for the server's price quote
+local BUY_TIMEOUT = 15 -- seconds to wait for the result of a confirmed purchase
 
 ---------------------------------------------------------------------------
 -- Purchases waiting in the mailbox
@@ -144,6 +145,13 @@ end
 -- Purchasing (one purchase at a time, like Blizzard's buy dialog)
 ---------------------------------------------------------------------------
 -- Purchase.pending = { itemID, qty, state = "quoting" | "quoted" | "buying", unitPrice, totalPrice }
+--
+-- The COMMODITY_* events don't say which item they are about, so a purchase made at the same
+-- moment through Blizzard's Buy tab (or another addon) can be mistaken for ours.
+
+-- A confirmed purchase whose result never arrived (it timed out, or the AH closed). If the
+-- server reports success afterwards, it is still recorded so the shopping list counts it.
+local unresolved
 
 function Purchase.IsBusy()
   return Purchase.pending ~= nil
@@ -172,6 +180,7 @@ function Purchase.Start(itemID, qty)
   if qty <= 0 then
     return
   end
+  unresolved = nil -- a late result from now on belongs to this purchase
   Purchase.pending = { itemID = itemID, qty = qty, state = "quoting" }
   C_AuctionHouse.StartCommoditiesPurchase(itemID, qty)
   ns:Fire("PURCHASE_UPDATED", Purchase.pending)
@@ -185,30 +194,6 @@ function Purchase.Start(itemID, qty)
   end)
 end
 
---- Step 2 (call from a button click): buy at the quoted price.
-function Purchase.Confirm()
-  local p = Purchase.pending
-  if not p or p.state ~= "quoted" then
-    return
-  end
-  if C_AuctionHouse.GetQuoteDurationRemaining and C_AuctionHouse.GetQuoteDurationRemaining() <= 0 then
-    Purchase.Cancel()
-    ns.Print("the price quote expired; click Buy again.")
-    return
-  end
-  p.state = "buying"
-  C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemID, p.qty)
-  ns:Fire("PURCHASE_UPDATED", p)
-end
-
-function Purchase.Cancel()
-  if not Purchase.pending then
-    return
-  end
-  C_AuctionHouse.CancelCommoditiesPurchase()
-  Finish("cancelled")
-end
-
 --- Seconds left on the current quote (nil if none).
 function Purchase.QuoteSecondsLeft()
   local p = Purchase.pending
@@ -217,16 +202,47 @@ function Purchase.QuoteSecondsLeft()
   end
 end
 
+--- Cancels a quote. A confirmed purchase ("buying") can't be cancelled; its result is awaited.
+function Purchase.Cancel()
+  local p = Purchase.pending
+  if not p or p.state == "buying" then
+    return
+  end
+  C_AuctionHouse.CancelCommoditiesPurchase()
+  Finish("cancelled")
+end
+
+-- Cancels the quote if it has run out. Returns true if it had.
+local function ExpireQuote()
+  local left = Purchase.QuoteSecondsLeft()
+  if left and left <= 0 then
+    Purchase.Cancel()
+    ns.Print("the price quote expired; click Buy again.")
+    return true
+  end
+end
+
+--- Step 2 (call from a button click): buy at the quoted price.
+function Purchase.Confirm()
+  local p = Purchase.pending
+  if not p or p.state ~= "quoted" or ExpireQuote() then
+    return
+  end
+  p.state = "buying"
+  C_AuctionHouse.ConfirmCommoditiesPurchase(p.itemID, p.qty)
+  ns:Fire("PURCHASE_UPDATED", p)
+  C_Timer.After(BUY_TIMEOUT, function()
+    if Purchase.pending == p and p.state == "buying" then
+      unresolved = p
+      Finish("failed", "no answer from the Auction House; check your mailbox before buying again.")
+    end
+  end)
+end
+
 -- While a quote is open, tick twice a second: update the countdown and expire the quote on time.
 local function WatchQuote(p)
   C_Timer.After(0.5, function()
-    if Purchase.pending ~= p or p.state ~= "quoted" then
-      return
-    end
-    local left = Purchase.QuoteSecondsLeft()
-    if left and left <= 0 then
-      Purchase.Cancel()
-      ns.Print("the price quote expired; click Buy again.")
+    if Purchase.pending ~= p or p.state ~= "quoted" or ExpireQuote() then
       return
     end
     ns:Fire("PURCHASE_UPDATED", p)
@@ -251,25 +267,38 @@ ns:RegisterEvent("COMMODITY_PRICE_UNAVAILABLE", function()
   end
 end)
 
+local function RecordPurchase(p)
+  ns.Print(string.format("bought %d x %s for %s.", p.qty, ns.ItemName(p.itemID), ns.FormatMoney(p.totalPrice, true)))
+  -- Those listings are gone now: remove them from the cached price ladder.
+  ns.Prices.Consume(p.itemID, p.qty)
+  AddToMail(p.itemID, p.qty)
+end
+
 ns:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED", function()
   local p = Purchase.pending
   if p and p.state == "buying" then
-    ns.Print(string.format("bought %d x %s for %s.", p.qty, ns.ItemName(p.itemID), ns.FormatMoney(p.totalPrice, true)))
-    -- Those listings are gone now: remove them from the cached price ladder.
-    ns.Prices.Consume(p.itemID, p.qty)
-    AddToMail(p.itemID, p.qty)
+    RecordPurchase(p)
     Finish("succeeded")
+  elseif unresolved then
+    p, unresolved = unresolved, nil
+    RecordPurchase(p)
+    ns:Fire("PURCHASE_UPDATED", p, "succeeded")
   end
 end)
 
 ns:RegisterEvent("COMMODITY_PURCHASE_FAILED", function()
+  unresolved = nil
   if Purchase.pending then
     Finish("failed", "purchase failed (prices may have changed); click Buy to get a new quote.")
   end
 end)
 
 ns:RegisterEvent("AUCTION_HOUSE_CLOSED", function()
-  if Purchase.pending then
+  local p = Purchase.pending
+  if p then
+    if p.state == "buying" then
+      unresolved = p
+    end
     Purchase.pending = nil
     ns:Fire("PURCHASE_UPDATED", nil, "cancelled")
   end

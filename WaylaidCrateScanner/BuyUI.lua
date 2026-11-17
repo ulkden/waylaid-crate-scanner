@@ -298,11 +298,7 @@ function BuyUI:Create()
   status:SetJustifyH("RIGHT")
   self.statusText = status
 
-  f:SetScript("OnHide", function()
-    if Purchase.IsBusy() then
-      Purchase.Cancel()
-    end
-  end)
+  f:SetScript("OnHide", Purchase.Cancel) -- releases an open quote (a confirmed purchase continues)
   return f
 end
 
