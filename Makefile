@@ -6,6 +6,8 @@ ADDON := WaylaidCrateScanner
 WOW_ADDONS ?= /Applications/World of Warcraft/_forever_/Interface/AddOns
 # Cache for Wowhead responses used by `make data`.
 DATA_CACHE ?= .cache/wowhead
+# Version written into the installed TOC (release builds get the tag from the packager instead).
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help check lint format format-check test data install hooks
 
@@ -40,6 +42,7 @@ data:
 install:
 	rm -rf "$(WOW_ADDONS)/$(ADDON)"
 	cp -R $(ADDON) "$(WOW_ADDONS)/"
+	sed 's/@project-version@/$(VERSION)/' $(ADDON)/$(ADDON).toc > "$(WOW_ADDONS)/$(ADDON)/$(ADDON).toc"
 	@echo "Installed to $(WOW_ADDONS)/$(ADDON) — /reload in game."
 
 hooks:
