@@ -44,6 +44,7 @@ function Tree.BuildRoot(inst, path)
     local itemID, qty = opt[1], opt[2]
     local child = MakeMaterial(itemID, qty, nil, path .. ">" .. itemID, {}, 0)
     child.optionQty = qty
+    child.crate = root -- option rows link back to their crate (used by the Buy button)
     child.order = i
     root.children[i] = child
   end
@@ -287,4 +288,11 @@ function Tree.SetAllExpanded(roots, value)
   for _, root in ipairs(roots) do
     walk(root)
   end
+end
+
+--- Prices `qty` of one item on its own (buy vs craft, recursively), for the purchase planner.
+function Tree.PriceMaterial(itemID, qty)
+  local node = MakeMaterial(itemID, qty, nil, "plan>" .. itemID, {}, 0)
+  ComputeMaterial(node)
+  return node
 end

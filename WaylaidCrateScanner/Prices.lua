@@ -115,3 +115,21 @@ function Prices.OldestAge(itemIDs)
   end
   return oldest and (time() - oldest) or nil
 end
+
+--- Removes `qty` units from the cheapest end of the cached ladder (after we bought them).
+function Prices.Consume(itemID, qty)
+  local rec = ns.db.prices[itemID]
+  if not rec then
+    return
+  end
+  while qty > 0 and rec.ladder[1] do
+    local step = rec.ladder[1]
+    if step[2] <= qty then
+      qty = qty - step[2]
+      table.remove(rec.ladder, 1)
+    else
+      step[2] = step[2] - qty
+      qty = 0
+    end
+  end
+end

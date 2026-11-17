@@ -58,6 +58,17 @@ When you turn one in and see the real number, set it with `/wcs favor <tier> <co
 
 Of the two routes, the cheaper one is shown bright and the other dimmed. Green marks the cheapest option. Click a row to expand or collapse it. Right-click expands or collapses everything below it. Shift-click links the item. Hover over a row for details: savings %, listed quantity, how many you have in your bags, and price age.
 
+### Buying materials
+Every crate row, and each of its fill-option rows, has a **Buy** button that opens a shopping list:
+
+- **Crates to fill**: how many crates to buy materials for (defaults to how many you carry in My Crates mode, 1 in AH Market mode).
+- **Fill with**: choose the option; the cheapest is preselected (or the one whose row you clicked).
+- **Craft where cheaper**: on = buy reagents and craft intermediates wherever that's cheaper; off = buy the fill items outright. The crafting steps are listed in order (e.g. smelt bars, then bolts, then modulators).
+- **Also buy the crates**: adds the crate itself to the list (on by default in AH Market mode).
+- Each line shows Need, what you already **Have** in your bags (used first), and an editable **Buy** quantity with its estimated cost.
+
+Click **Buy N** to get a live price quote from the Auction House. The button then becomes **Confirm &lt;price&gt;**: click it to purchase, or the X to cancel. If the quote is more than 5% above the scanned estimate, the tooltip warns you. Quotes expire after a short time, like Blizzard's own buy dialog. Only stackable (commodity) items can be bought this way, which covers crates and all fill materials.
+
 ### Slash commands
 `/wcs` (toggle the window) · `/wcs favor …` · `/wcs crates` (list crates in your bags) · `/wcs tooltip` (print crate tooltip lines) · `/wcs debug` · `/wcs reset` (clear cached prices)
 

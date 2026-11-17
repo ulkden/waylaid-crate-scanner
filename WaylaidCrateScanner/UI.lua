@@ -373,8 +373,24 @@ local function BuildRow(button)
   button.Name = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   button.Name:SetJustifyH("LEFT")
   button.Name:SetWordWrap(false)
+  -- "Buy" opens the purchase window for this crate (option rows preselect that option).
+  button.BuyButton = CreateFrame("Button", nil, button, "UIPanelButtonTemplate")
+  button.BuyButton:SetSize(40, 18)
+  button.BuyButton:SetText("Buy")
+  button.BuyButton:SetPoint("RIGHT", button.Cols[1], "LEFT", -4, 0)
+  button.BuyButton:SetScript("OnClick", function(self)
+    UI:OpenBuyWindow(self:GetParent().row)
+  end)
+  button.BuyButton:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:SetText("Buy materials")
+    GameTooltip:AddLine("Open a shopping list for filling this crate, with Buy buttons for each item.", 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  button.BuyButton:SetScript("OnLeave", GameTooltip_Hide)
+
   button.Name:SetPoint("LEFT", button.Icon, "RIGHT", 4, 0)
-  button.Name:SetPoint("RIGHT", button.Cols[1], "LEFT", -6, 0)
+  button.Name:SetPoint("RIGHT", button.BuyButton, "LEFT", -6, 0)
 
   button:SetScript("OnClick", function(self, mouseButton)
     UI:OnRowClick(self, mouseButton)
@@ -448,6 +464,21 @@ local function InitRow(button, row)
     local fn = isCrate and col.crate or col.mat
     button.Cols[i]:SetText(fn(node) or "")
   end
+
+  -- Buy button on crate rows and their fill-option rows.
+  button.BuyButton:SetShown(isCrate or node.crate ~= nil)
+end
+
+function UI:OpenBuyWindow(row)
+  local node = row and row.node
+  if not node then
+    return
+  end
+  local crateNode = node.kind == "crate" and node or node.crate
+  if not crateNode then
+    return
+  end
+  ns.BuyUI:Open(crateNode.inst, node.kind ~= "crate" and node.itemID or nil, Mode() == "market")
 end
 
 ---------------------------------------------------------------------------

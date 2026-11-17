@@ -44,7 +44,9 @@ WaylaidCrateScanner/
   Prices.lua    price "ladders" per item; cost of buying N units walking up the listings
   Scanner.lua   sequential AH search queue (C_AuctionHouse.SendSearchQuery), rate limited
   Tree.lua      builds crate -> option -> reagent trees and computes buy/craft/best costs, gold per favor
+  Purchase.lua  shopping-list planner (bags first, buy vs craft) + two-step commodity purchase state machine
   UI.lua        scanner window, AH tab launcher (via LibAHTab), rows, tooltips, sorting
+  BuyUI.lua     "Buy Crate Materials" window: crate count, option choice, shopping list with Buy/Confirm buttons
   Media/        in-game textures (waylaid_crate_icon_64.tga: addon list / compartment / window icon)
   Libs/         vendored LibStub + LibAHTab (do not edit; not linted or formatted)
 media/          logo source art (SVG + 512px PNG) for the README and CurseForge; not shipped in-game
@@ -54,7 +56,9 @@ tools/
   test_harness.lua  offline tests
 ```
 
-Modules communicate through `ns:Fire(msg)` / `ns:Listen(msg, fn)`. Messages: `SCAN_STARTED`, `SCAN_PROGRESS`, `SCAN_FINISHED`, `PRICES_UPDATED`, `ITEM_DATA_UPDATED`.
+Modules communicate through `ns:Fire(msg)` / `ns:Listen(msg, fn)`. Messages: `SCAN_STARTED`, `SCAN_PROGRESS`, `SCAN_FINISHED`, `PRICES_UPDATED`, `ITEM_DATA_UPDATED`, `PURCHASE_UPDATED`.
+
+Purchases must start from a real mouse click: `C_AuctionHouse.StartCommoditiesPurchase` is hardware-event restricted, and `ConfirmCommoditiesPurchase` is only called from the Confirm click after the server's quote arrives. Never call either one from timers or events.
 
 ## When the game adds or changes crates
 

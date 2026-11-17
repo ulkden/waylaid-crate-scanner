@@ -54,6 +54,7 @@ AuctionHouseFrame = {
 }
 
 local names
+local bagCounts = {} -- [itemID] = count, for C_Item.GetItemCount
 C_Item = {
   GetItemNameByID = function(id)
     return names[id]
@@ -65,8 +66,8 @@ C_Item = {
   GetItemQualityByID = function()
     return 1
   end,
-  GetItemCount = function()
-    return 0
+  GetItemCount = function(id)
+    return bagCounts[id] or 0
   end,
 }
 
@@ -105,6 +106,7 @@ C_TooltipInfo = {
   end,
 }
 local sent = {}
+local purchaseCalls = {}
 C_AuctionHouse = {
   IsThrottledMessageSystemReady = function()
     return true
@@ -117,6 +119,18 @@ C_AuctionHouse = {
   end,
   GetNumCommoditySearchResults = function()
     return 0
+  end,
+  StartCommoditiesPurchase = function(id, qty)
+    table.insert(purchaseCalls, "start:" .. id .. "x" .. qty)
+  end,
+  ConfirmCommoditiesPurchase = function(id, qty)
+    table.insert(purchaseCalls, "confirm:" .. id .. "x" .. qty)
+  end,
+  CancelCommoditiesPurchase = function()
+    table.insert(purchaseCalls, "cancel")
+  end,
+  GetQuoteDurationRemaining = function()
+    return 20
   end,
 }
 Enum = { AuctionHouseSortOrder = { Price = 0 } }
@@ -131,7 +145,17 @@ names = {}
 for id, n in pairs(ns.FallbackNames) do
   names[id] = n
 end
-for _, f in ipairs({ "Core.lua", "Favor.lua", "Crates.lua", "Prices.lua", "Scanner.lua", "Tree.lua", "UI.lua" }) do
+for _, f in ipairs({
+  "Core.lua",
+  "Favor.lua",
+  "Crates.lua",
+  "Prices.lua",
+  "Scanner.lua",
+  "Tree.lua",
+  "Purchase.lua",
+  "UI.lua",
+  "BuyUI.lua",
+}) do
   load(f)
 end
 fire("ADDON_LOADED", "WaylaidCrateScanner")
@@ -240,6 +264,70 @@ check(
 )
 ns.SetFavorOverride("artisan common clear")
 check(ns.GetFavor("Artisan Ore", 1) == 20, "/wcs favor clear restores default")
+
+-- ---- purchase planning --------------------------------------------------
+local function byItem(list)
+  local t = {}
+  for _, e in ipairs(list) do
+    t[e.itemID] = e
+  end
+  return t
+end
+bagCounts[2589] = 20 -- 20 Linen Cloth already in bags
+local plan = ns.Purchase.BuildPlan({ crates = 2, optionItemID = 4363, optionQty = 4, craft = true })
+local shop, crafts = byItem(plan.shopping), byItem(plan.crafts)
+check(crafts[4363] and crafts[4363].crafts == 8, "plan: craft 8 Copper Modulators for 2 crates")
+check(crafts[4359] and crafts[4359].crafts == 16, "plan: craft 16 Handful of Copper Bolts")
+check(crafts[2840] and crafts[2840].crafts == 24, "plan: smelt 24 Copper Bars (16 for bolts + 8 for modulators)")
+check(plan.crafts[1].itemID == 2840, "plan: craft steps ordered deepest first (bars before bolts)")
+check(shop[2770] and shop[2770].toBuy == 24, "plan: buy 24 Copper Ore")
+check(
+  shop[2589] and shop[2589].need == 16 and shop[2589].have == 16 and shop[2589].toBuy == 0,
+  "plan: Linen Cloth covered by bags (need 16, have 16, buy 0)"
+)
+local buyOnly = ns.Purchase.BuildPlan({ crates = 2, optionItemID = 4363, optionQty = 4, craft = false })
+check(
+  #buyOnly.shopping == 1 and buyOnly.shopping[1].toBuy == 8 and #buyOnly.crafts == 0,
+  "plan without crafting: buy 8 Copper Modulators outright"
+)
+bagCounts[248704] = 1
+local withCrates = ns.Purchase.BuildPlan({
+  crates = 3,
+  optionItemID = 4363,
+  optionQty = 4,
+  craft = false,
+  crateItemID = 248704,
+})
+check(withCrates.shopping[1].isCrate and withCrates.shopping[1].toBuy == 2, "plan: crate line first, buys 3 - 1 owned")
+bagCounts[248704] = nil
+
+-- ---- purchase state machine ----------------------------------------------
+local P2 = ns.Purchase
+P.Store(2770, { { 10, 200 } })
+P2.Start(2770, 24)
+check(
+  P2.pending and P2.pending.state == "quoting" and purchaseCalls[#purchaseCalls] == "start:2770x24",
+  "purchase: Start asks for a quote"
+)
+P2.Confirm()
+check(purchaseCalls[#purchaseCalls] == "start:2770x24", "purchase: Confirm does nothing before the quote arrives")
+fire("COMMODITY_PRICE_UPDATED", 11, 264)
+check(P2.pending.state == "quoted" and P2.pending.totalPrice == 264, "purchase: quote received")
+P2.Confirm()
+check(P2.pending.state == "buying" and purchaseCalls[#purchaseCalls] == "confirm:2770x24", "purchase: Confirm buys")
+fire("COMMODITY_PURCHASE_SUCCEEDED")
+check(
+  P2.pending == nil and P.Listed(2770) == 176,
+  "purchase: success clears state and consumes 24 from the cached ladder"
+)
+P2.Start(2770, 5)
+fire("COMMODITY_PRICE_UNAVAILABLE")
+check(P2.pending == nil, "purchase: price unavailable ends the purchase")
+P2.Start(2770, 5)
+fire("COMMODITY_PRICE_UPDATED", 10, 50)
+P2.Cancel()
+check(P2.pending == nil and purchaseCalls[#purchaseCalls] == "cancel", "purchase: Cancel releases the quote")
+runTimers()
 
 -- ---- scanner skip-fresh --------------------------------------------------
 ns.Scanner:Start({ [2840] = true, [2771] = true, [99999] = true }, 300)
