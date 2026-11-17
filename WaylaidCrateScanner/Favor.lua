@@ -89,8 +89,8 @@ function ns.SetFavorOverride(args)
     ns.Print(string.format("%s %s crates: back to default favor.", tier, qualityName))
   else
     local n = tonumber(amount)
-    if not n then
-      ns.Print("amount must be a number or 'clear'.")
+    if not n or n <= 0 or n % 1 ~= 0 then
+      ns.Print("amount must be a whole number above 0, or 'clear'.")
       return
     end
     ns.db.favorOverrides[k] = n
