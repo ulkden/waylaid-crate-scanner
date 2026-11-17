@@ -1,0 +1,17 @@
+# Wowhead response cache used by tools/gen.py (make data)
+.cache/
+
+# Tooling
+.luacheckcache
+__pycache__/
+*.pyc
+
+# Packaging output
+*.zip
+.release/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Waylaid Crate Scanner
+## Notes: Prices every way to fill Waylaid Crates (buy vs craft) and the gold per Merchant's Favor. Open from the Auction House "Crates" tab or /wcs.
+## Author: ulkden
+## Version: 0.1.0
+## X-License: GPL-3.0
+## X-Website: https://github.com/ulkden/waylaid-crate-scanner
+## SavedVariables: WaylaidCrateScannerDB
+## OptionalDeps: LibStub, Auctionator
+## IconTexture: 132594
+
+Libs\LibStub\LibStub.lua
+Libs\LibAHTab\LibAHTab.lua
+
+Data.lua
+Core.lua
+Favor.lua
+Crates.lua
+Prices.lua
+Scanner.lua
+Tree.lua
+UI.lua
