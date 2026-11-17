@@ -1,6 +1,8 @@
+<p align="center"><img src="media/waylaid_crate_logo.svg" alt="Waylaid Crate Scanner logo" width="160"></p>
+
 # Waylaid Crate Scanner (WoW: Forever)
 
-A resizable scanner window that finds the cheapest way to fill Waylaid Crates and the cheapest **gold per Merchant's Favor**. Open it from the Auction House **Crates** tab (it docks beside the AH and stays open while you use the Buy tab) or with `/wcs`. Scans run while the Auction House is open. With the AH closed, the window shows the last scanned prices.
+A resizable scanner window that finds the cheapest way to fill Waylaid Crates and the cheapest **gold per Merchant's Favor**. Open it from the Auction House **Crates** tab (it docks beside the AH and stays open while you use the Buy tab), from the minimap addon menu, or with `/wcs`. Scans run while the Auction House is open. With the AH closed, the window shows the last scanned prices.
 
 Two modes:
 

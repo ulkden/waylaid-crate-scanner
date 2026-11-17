@@ -45,7 +45,9 @@ WaylaidCrateScanner/
   Scanner.lua   sequential AH search queue (C_AuctionHouse.SendSearchQuery), rate limited
   Tree.lua      builds crate -> option -> reagent trees and computes buy/craft/best costs, gold per favor
   UI.lua        scanner window, AH tab launcher (via LibAHTab), rows, tooltips, sorting
+  Media/        in-game textures (waylaid_crate_icon_64.tga: addon list / compartment / window icon)
   Libs/         vendored LibStub + LibAHTab (do not edit; not linted or formatted)
+media/          logo source art (SVG + 512px PNG) for the README and CurseForge; not shipped in-game
 tools/
   crates.py         crate names + material name->ID hints (input to gen.py)
   gen.py            builds Data.lua from Wowhead Forever (crate tooltips + "created by" recipes)
@@ -65,6 +67,12 @@ Modules communicate through `ns:Fire(msg)` / `ns:Listen(msg, fn)`. Messages: `SC
 ## Using new WoW API functions
 
 luacheck only allows globals listed in `.luacheckrc`. When you call a WoW API or FrameXML global the addon hasn't used before, add it to `read_globals` there. Check that it exists in Forever first: the client's UI source is mirrored in the `forever` branch of [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source/tree/forever).
+
+## Textures
+
+In-game textures must be TGA (uncompressed or RLE, with alpha) or BLP, with power-of-two dimensions (e.g. 64x64).
+Reference them without the extension: `Interface\AddOns\WaylaidCrateScanner\Media\<name>` (double the backslashes inside Lua strings). WoW only finds new
+texture files after a full client restart, not `/reload`.
 
 ## Style
 

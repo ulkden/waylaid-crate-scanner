@@ -26,6 +26,10 @@ globals = {
   "SLASH_WAYLAIDCRATESCANNER2",
   "SlashCmdList",
   "UISpecialFrames",
+  -- Minimap addon compartment callbacks (named in the .toc)
+  "WaylaidCrateScanner_OnAddonCompartmentClick",
+  "WaylaidCrateScanner_OnAddonCompartmentEnter",
+  "WaylaidCrateScanner_OnAddonCompartmentLeave",
 }
 
 -- WoW API / FrameXML globals the addon reads. Add new ones here when you use them.

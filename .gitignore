@@ -10,7 +10,11 @@ __pycache__/
 *.zip
 .release/
 
-# OS / editor
+# OS / editor (vim swap/backup files can contain your username, hostname and paths)
+*.swp
+*.swo
+*~
+.*.sw?
 .DS_Store
 Thumbs.db
 .vscode/

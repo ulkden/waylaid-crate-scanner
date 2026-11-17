@@ -3,6 +3,31 @@ _G.WaylaidCrateScanner = ns
 
 ns.addonName = addonName
 ns.TAB_ID = "WaylaidCrateScanner"
+-- Addon icon (64x64 TGA; WoW resolves the extension). Also set as ## IconTexture in the .toc.
+ns.ICON = "Interface\\AddOns\\" .. addonName .. "\\Media\\waylaid_crate_icon_64"
+
+---------------------------------------------------------------------------
+-- Minimap addon compartment entry (names referenced from the .toc)
+---------------------------------------------------------------------------
+function WaylaidCrateScanner_OnAddonCompartmentClick()
+  ns.UI:ToggleWindow()
+end
+
+-- Called by the compartment menu as (addonName, menuButton).
+function WaylaidCrateScanner_OnAddonCompartmentEnter(_, menuButton)
+  if not menuButton then
+    return
+  end
+  GameTooltip:SetOwner(menuButton, "ANCHOR_LEFT")
+  GameTooltip:SetText("Waylaid Crate Scanner")
+  GameTooltip:AddLine("Click to open the scanner window.", 1, 1, 1)
+  GameTooltip:AddLine("Scanning needs the Auction House open.", 0.6, 0.6, 0.6)
+  GameTooltip:Show()
+end
+
+function WaylaidCrateScanner_OnAddonCompartmentLeave()
+  GameTooltip:Hide()
+end
 
 local DEFAULTS = {
   prices = {}, -- [itemID] = { t = time(), ladder = { {unitPrice, quantity}, ... } }

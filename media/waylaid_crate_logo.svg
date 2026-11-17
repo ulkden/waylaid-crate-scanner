@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+<radialGradient id="bg" cx="50%" cy="55%" r="72%">
+<stop offset="0" stop-color="#fff6c2"/><stop offset=".22" stop-color="#ffd84d"/>
+<stop offset=".5" stop-color="#e89a12"/><stop offset=".8" stop-color="#8a4a06"/><stop offset="1" stop-color="#3b1d03"/>
+</radialGradient>
+<radialGradient id="ray" gradientUnits="userSpaceOnUse" cx="256" cy="280" r="400">
+<stop offset="0" stop-color="#fffbe0" stop-opacity=".75"/><stop offset=".6" stop-color="#ffe680" stop-opacity=".28"/>
+<stop offset="1" stop-color="#ffd24d" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="halo" cx="50%" cy="50%" r="50%">
+<stop offset="0" stop-color="#fffdf0" stop-opacity="1"/><stop offset=".55" stop-color="#fff0a0" stop-opacity=".7"/>
+<stop offset="1" stop-color="#ffd84d" stop-opacity="0"/>
+</radialGradient>
+<radialGradient id="vig" cx="50%" cy="50%" r="72%">
+<stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#1a0c00" stop-opacity=".75"/>
+</radialGradient>
+<linearGradient id="gt" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d8a05e"/><stop offset="1" stop-color="#bb8246"/></linearGradient>
+<linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c2854a"/><stop offset="1" stop-color="#a3682f"/></linearGradient>
+<linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#96622f"/><stop offset="1" stop-color="#74481d"/></linearGradient>
+<clipPath id="ct"><polygon points="256,96 412,180 256,264 100,180"/></clipPath>
+<clipPath id="cl"><polygon points="100,180 256,264 256,456 100,372"/></clipPath>
+<clipPath id="cr"><polygon points="256,264 412,180 412,372 256,456"/></clipPath>
+<clipPath id="round"><rect width="512" height="512" rx="56"/></clipPath>
+</defs>
+<g clip-path="url(#round)">
+<rect width="512" height="512" fill="url(#bg)"/>
+<polygon points="256,280 674.6,245.4 674.6,314.6" fill="url(#ray)"/><polygon points="256,280 656.0,408.2 629.5,472.1" fill="url(#ray)"/><polygon points="256,280 576.4,551.5 527.5,600.4" fill="url(#ray)"/><polygon points="256,280 448.1,653.5 384.2,680.0" fill="url(#ray)"/><polygon points="256,280 290.6,698.6 221.4,698.6" fill="url(#ray)"/><polygon points="256,280 127.8,680.0 63.9,653.5" fill="url(#ray)"/><polygon points="256,280 -15.5,600.4 -64.4,551.5" fill="url(#ray)"/><polygon points="256,280 -117.5,472.1 -144.0,408.2" fill="url(#ray)"/><polygon points="256,280 -162.6,314.6 -162.6,245.4" fill="url(#ray)"/><polygon points="256,280 -144.0,151.8 -117.5,87.9" fill="url(#ray)"/><polygon points="256,280 -64.4,8.5 -15.5,-40.4" fill="url(#ray)"/><polygon points="256,280 63.9,-93.5 127.8,-120.0" fill="url(#ray)"/><polygon points="256,280 221.4,-138.6 290.6,-138.6" fill="url(#ray)"/><polygon points="256,280 384.2,-120.0 448.1,-93.5" fill="url(#ray)"/><polygon points="256,280 527.5,-40.4 576.4,8.5" fill="url(#ray)"/><polygon points="256,280 629.5,87.9 656.0,151.8" fill="url(#ray)"/>
+<ellipse cx="256" cy="280" rx="250" ry="250" fill="url(#halo)"/>
+<rect width="512" height="512" fill="url(#vig)"/>
+<polygon opacity="1" fill="#fffbe0" points="84,92 88.4,107.6 104,112 88.4,116.4 84,132 79.6,116.4 64,112 79.6,107.6"/><polygon opacity="0.9" fill="#fffbe0" points="432,81 435.3,92.7 447,96 435.3,99.3 432,111 428.7,99.3 417,96 428.7,92.7"/><polygon opacity="0.85" fill="#fffbe0" points="448,318 450.64,327.36 460,330 450.64,332.64 448,342 445.36,332.64 436,330 445.36,327.36"/><polygon opacity="0.85" fill="#fffbe0" points="62,359 64.86,369.14 75,372 64.86,374.86 62,385 59.14,374.86 49,372 59.14,369.14"/><polygon opacity="0.8" fill="#fffbe0" points="150,49 151.98,56.02 159,58 151.98,59.98 150,67 148.02,59.98 141,58 148.02,56.02"/><polygon opacity="0.7" fill="#fffbe0" points="380,431 381.98,438.02 389,440 381.98,441.98 380,449 378.02,441.98 371,440 378.02,438.02"/>
+<g stroke-linejoin="round" stroke-linecap="round">
+<polygon points="256,96 412,180 256,264 100,180" fill="url(#gt)"/>
+<g clip-path="url(#ct)"><line x1="204.0" y1="124.0" x2="360.0" y2="208.0" stroke="#6e4218" stroke-width="5"/><line x1="152.0" y1="152.0" x2="308.0" y2="236.0" stroke="#6e4218" stroke-width="5"/><polygon points="256,96 412,180 256,264 100,180" fill="none" stroke="#a36a30" stroke-width="40"/></g>
+<polygon points="100,180 256,264 256,456 100,372" fill="url(#gl)"/>
+<g clip-path="url(#cl)"><line x1="100.0" y1="244.0" x2="256.0" y2="328.0" stroke="#5c3614" stroke-width="5"/><line x1="100.0" y1="308.0" x2="256.0" y2="392.0" stroke="#5c3614" stroke-width="5"/>
+<line x1="100" y1="180" x2="256" y2="456" stroke="#5c3614" stroke-width="34"/>
+<line x1="100" y1="180" x2="256" y2="456" stroke="#93602c" stroke-width="24"/>
+<polygon points="100,180 256,264 256,456 100,372" fill="none" stroke="#5c3614" stroke-width="56"/>
+<polygon points="100,180 256,264 256,456 100,372" fill="none" stroke="#93602c" stroke-width="46"/></g>
+<polygon points="256,264 412,180 412,372 256,456" fill="url(#gr)"/>
+<g clip-path="url(#cr)"><line x1="256.0" y1="328.0" x2="412.0" y2="244.0" stroke="#3a2009" stroke-width="5"/><line x1="256.0" y1="392.0" x2="412.0" y2="308.0" stroke="#3a2009" stroke-width="5"/>
+<line x1="412" y1="180" x2="256" y2="456" stroke="#341c07" stroke-width="34"/>
+<line x1="412" y1="180" x2="256" y2="456" stroke="#673f18" stroke-width="24"/>
+<polygon points="256,264 412,180 412,372 256,456" fill="none" stroke="#341c07" stroke-width="56"/>
+<polygon points="256,264 412,180 412,372 256,456" fill="none" stroke="#673f18" stroke-width="46"/></g>
+<circle cx="117" cy="210" r="5.5" fill="#2e1a08"/><circle cx="115.5" cy="208.5" r="2" fill="#d9b98a"/><circle cx="239" cy="294" r="5.5" fill="#2e1a08"/><circle cx="237.5" cy="292.5" r="2" fill="#d9b98a"/><circle cx="117" cy="360" r="5.5" fill="#2e1a08"/><circle cx="115.5" cy="358.5" r="2" fill="#d9b98a"/><circle cx="239" cy="426" r="5.5" fill="#2e1a08"/><circle cx="237.5" cy="424.5" r="2" fill="#d9b98a"/><circle cx="273" cy="294" r="5.5" fill="#2e1a08"/><circle cx="271.5" cy="292.5" r="2" fill="#d9b98a"/><circle cx="395" cy="210" r="5.5" fill="#2e1a08"/><circle cx="393.5" cy="208.5" r="2" fill="#d9b98a"/><circle cx="273" cy="426" r="5.5" fill="#2e1a08"/><circle cx="271.5" cy="424.5" r="2" fill="#d9b98a"/><circle cx="395" cy="360" r="5.5" fill="#2e1a08"/><circle cx="393.5" cy="358.5" r="2" fill="#d9b98a"/>
+<g fill="none" stroke="#2a1505" stroke-width="8">
+<polygon points="256,96 412,180 412,372 256,456 100,372 100,180"/><polyline points="100,180 256,264 412,180"/><line x1="256" y1="264" x2="256" y2="456"/></g>
+<g clip-path="url(#ct)"><polyline points="100,180 256,96" fill="none" stroke="#fff0c0" stroke-width="3" opacity=".75" transform="translate(4,8)"/></g>
+</g>
+</g>
+<rect x="5" y="5" width="502" height="502" rx="52" fill="none" stroke="#2a1505" stroke-width="10"/>
+<rect x="13" y="13" width="486" height="486" rx="45" fill="none" stroke="#ffd65a" stroke-width="5"/>
+</svg>

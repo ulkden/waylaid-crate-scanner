@@ -753,7 +753,7 @@ function UI:CreateWindow()
     f:SetTitle("Waylaid Crate Scanner")
   end
   if f.SetPortraitToAsset then
-    f:SetPortraitToAsset(132594)
+    f:SetPortraitToAsset(ns.ICON)
   end
   f:Hide()
   self.window = f
@@ -994,7 +994,12 @@ function UI:CreateTabPanel(parent)
   panel:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -4, 28)
 
   local text = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  text:SetPoint("CENTER", panel, "CENTER", 0, 30)
+  text:SetPoint("CENTER", panel, "CENTER", 0, 10)
+
+  local icon = panel:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(64, 64)
+  icon:SetTexture(ns.ICON)
+  icon:SetPoint("BOTTOM", text, "TOP", 0, 16)
   text:SetWidth(520)
   text:SetJustifyH("CENTER")
   panel.Text = text
