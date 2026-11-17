@@ -22,7 +22,7 @@ jobs:
   package:
     name: Package and release
     needs: checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write # create the GitHub release
     env:
