@@ -392,7 +392,7 @@ print("     market scan size: " .. nScan .. " items")
 check(ns.Tree.MarketScanItems() == scanItems, "market scan item set is built once and reused")
 
 -- ---- lookups and caches ---------------------------------------------------
-P.Store(99001, { { 3, 900 }, { 1, 900 }, { 2, 900 } })
+P.Store(99001, { { 1, 900 }, { 2, 900 }, { 3, 900 } })
 check(
   #P.Get(99001).ladder == 2 and P.Listed(99001) == 2700,
   "ladder keeps the cheapest ~1000 units but Listed counts everything (2700)"
