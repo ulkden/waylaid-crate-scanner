@@ -15,20 +15,21 @@ function Prices.Get(itemID)
   return ns.db.prices[itemID]
 end
 
-function Prices.Store(itemID, ladder)
+--- listed (optional): total quantity on the AH, if the search reported more than the ladder holds.
+function Prices.Store(itemID, ladder, listed)
   table.sort(ladder, function(a, b)
     return a[1] < b[1]
   end)
-  -- Keep the cheapest ~1000 units; that is far more than any crate needs.
-  local trimmed, total = {}, 0
+  -- Keep the cheapest ~1000 units (far more than any crate needs), but count everything listed.
+  local trimmed, kept, total = {}, 0, 0
   for _, step in ipairs(ladder) do
-    table.insert(trimmed, step)
-    total = total + step[2]
-    if total >= 1000 then
-      break
+    if kept < 1000 then
+      trimmed[#trimmed + 1] = step
+      kept = kept + step[2]
     end
+    total = total + step[2]
   end
-  ns.db.prices[itemID] = { t = time(), ladder = trimmed }
+  ns.db.prices[itemID] = { t = time(), ladder = trimmed, listed = math.max(listed or 0, total) }
 end
 
 local function VendorPrice(itemID)
@@ -51,14 +52,7 @@ end
 --- Total listed quantity on the AH (from the last scan), or nil if never scanned.
 function Prices.Listed(itemID)
   local rec = ns.db.prices[itemID]
-  if not rec then
-    return nil
-  end
-  local total = 0
-  for _, step in ipairs(rec.ladder) do
-    total = total + step[2]
-  end
-  return total
+  return rec and rec.listed
 end
 
 --- Cost of buying `qty` units, walking up the listing ladder.
@@ -122,6 +116,7 @@ function Prices.Consume(itemID, qty)
   if not rec then
     return
   end
+  rec.listed = math.max(0, rec.listed - qty)
   while qty > 0 and rec.ladder[1] do
     local step = rec.ladder[1]
     if step[2] <= qty then

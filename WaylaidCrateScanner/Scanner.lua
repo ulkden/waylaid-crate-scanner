@@ -141,7 +141,9 @@ function Scanner:Send()
   end
 
   local itemID = self.current
-  ns.Debug("searching", itemID, ns.ItemName(itemID))
+  if ns.db.debug then
+    ns.Debug("searching", itemID, ns.ItemName(itemID))
+  end
   table.insert(sendTimes, GetTime())
   C_AuctionHouse.SendSearchQuery(C_AuctionHouse.MakeItemKey(itemID), SORTS, false)
 
@@ -156,9 +158,9 @@ function Scanner:Send()
   end)
 end
 
-function Scanner:Finish(itemID, ladder)
+function Scanner:Finish(itemID, ladder, listed)
   self.current = nil -- ignore any duplicate result events for this item
-  ns.Prices.Store(itemID, ladder)
+  ns.Prices.Store(itemID, ladder, listed)
   ns:Fire("PRICES_UPDATED", itemID)
   -- Tiny delay keeps us well under the 100 searches/minute limit.
   local token = self.token
@@ -188,7 +190,8 @@ ns:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED", function(_, itemID)
       table.insert(ladder, { r.unitPrice, r.quantity })
     end
   end
-  Scanner:Finish(itemID, ladder)
+  local GetQuantity = C_AuctionHouse.GetCommoditySearchResultsQuantity
+  Scanner:Finish(itemID, ladder, GetQuantity and GetQuantity(itemID))
 end)
 
 ns:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED", function(_, itemKey)

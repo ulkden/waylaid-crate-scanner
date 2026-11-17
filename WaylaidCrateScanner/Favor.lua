@@ -13,17 +13,30 @@ ns.FavorTable = {
   Artisan = { [1] = 20, [2] = 40, confirmed = false },
 }
 
-ns.QualityNames = { [1] = "common", [2] = "uncommon", [3] = "rare" }
+local TIERS = { "Apprentice", "Journeyman", "Expert", "Artisan" }
+
+ns.QualityNames = { [1] = "common", [2] = "uncommon" }
+local QUALITY_BY_NAME = { common = 1, uncommon = 2 }
+
+-- [crate key] = tier, or false if the key names no tier. Filled on first lookup.
+local tierByKey = {}
 
 function ns.CrateTier(key)
   if not key then
     return nil
   end
-  for _, tier in ipairs({ "Apprentice", "Journeyman", "Expert", "Artisan" }) do
-    if key:find(tier, 1, true) then
-      return tier
+  local tier = tierByKey[key]
+  if tier == nil then
+    tier = false
+    for _, t in ipairs(TIERS) do
+      if key:find(t, 1, true) then
+        tier = t
+        break
+      end
     end
+    tierByKey[key] = tier
   end
+  return tier or nil
 end
 
 --- Returns favor, confirmed (both nil if unknown).
@@ -50,15 +63,10 @@ function ns.SetFavorOverride(args)
   if tier then
     tier = tier:sub(1, 1):upper() .. tier:sub(2):lower()
   end
-  local quality
-  for q, name in pairs(ns.QualityNames) do
-    if qualityName and name == qualityName:lower() then
-      quality = q
-    end
-  end
+  local quality = qualityName and QUALITY_BY_NAME[qualityName:lower()]
   if not (tier and ns.FavorTable[tier] and quality) then
     ns.Print("usage: /wcs favor <apprentice|journeyman|expert|artisan> <common|uncommon> <amount|clear>")
-    for _, t in ipairs({ "Apprentice", "Journeyman", "Expert", "Artisan" }) do
+    for _, t in ipairs(TIERS) do
       local c = ns.GetFavor(t, 1)
       local u = ns.GetFavor(t, 2)
       local row = ns.FavorTable[t]

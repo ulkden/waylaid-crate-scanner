@@ -90,14 +90,18 @@ function Tree.BuildMarket(onlyListed)
 end
 
 --- Every item ID the market scan needs: all crate items plus all of their materials.
+--- Depends only on Data.lua, so it is built once. Callers must not modify it.
+local marketItems
 function Tree.MarketScanItems()
-  local set = Tree.CollectItems(Tree.BuildMarket(false))
-  for _, def in pairs(ns.Crates) do
-    if def.itemID then
-      set[def.itemID] = true
+  if not marketItems then
+    marketItems = Tree.CollectItems(Tree.BuildMarket(false))
+    for _, def in pairs(ns.Crates) do
+      if def.itemID then
+        marketItems[def.itemID] = true
+      end
     end
   end
-  return set
+  return marketItems
 end
 
 --- Collects every item ID in the trees into a set (what needs scanning).

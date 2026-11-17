@@ -42,7 +42,7 @@ function Purchase.BuildPlan(opts)
   local function addShopping(itemID, need, have, isCrate)
     local s = shoppingByID[itemID]
     if not s then
-      s = { itemID = itemID, need = 0, have = 0, isCrate = isCrate }
+      s = { itemID = itemID, name = ns.ItemName(itemID), need = 0, have = 0, isCrate = isCrate }
       shoppingByID[itemID] = s
       table.insert(shopping, s)
     end
@@ -63,7 +63,8 @@ function Purchase.BuildPlan(opts)
     end
     local c = craftsByID[itemID]
     if not c then
-      c = { itemID = itemID, crafts = 0, made = 0, fromBags = 0, depth = depth, spell = node.recipe.spell }
+      c = { itemID = itemID, name = ns.ItemName(itemID), crafts = 0, made = 0, fromBags = 0, depth = depth }
+      c.spell = node.recipe.spell
       craftsByID[itemID] = c
       table.insert(crafts, c)
     end
@@ -91,13 +92,13 @@ function Purchase.BuildPlan(opts)
     if a.isCrate ~= b.isCrate then
       return a.isCrate and true or false
     end
-    return ns.ItemName(a.itemID) < ns.ItemName(b.itemID)
+    return a.name < b.name
   end)
   table.sort(crafts, function(a, b)
     if a.depth ~= b.depth then
       return a.depth > b.depth
     end
-    return ns.ItemName(a.itemID) < ns.ItemName(b.itemID)
+    return a.name < b.name
   end)
   return { shopping = shopping, crafts = crafts }
 end

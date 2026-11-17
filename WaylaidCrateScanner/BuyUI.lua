@@ -369,7 +369,7 @@ function BuyUI:Refresh()
   end
   local inst = self.inst
 
-  self.crateIcon:SetTexture((inst.itemID and C_Item.GetItemIconByID(inst.itemID)) or ns.ICON)
+  self.crateIcon:SetTexture(inst.itemID and ns.ItemIcon(inst.itemID) or ns.ICON)
   self.crateName:SetText(inst.name)
   if not self.crateBox:HasFocus() then
     self.crateBox:SetText(tostring(self.crates))

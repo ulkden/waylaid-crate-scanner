@@ -30,7 +30,7 @@ function WaylaidCrateScanner_OnAddonCompartmentLeave()
 end
 
 local DEFAULTS = {
-  prices = {}, -- [itemID] = { t = time(), ladder = { {unitPrice, quantity}, ... } }; cleared at each login
+  prices = {}, -- [itemID] = { t = time(), listed = n, ladder = { {unitPrice, quantity}, ... } }; cleared at login
   expanded = {}, -- [nodePath] = true/false
   useVendor = true, -- use vendor price for Weak Flux / Salt / Coal when cheaper
   mode = "bags", -- "bags" (crates in your bags) or "market" (every crate listed on the AH)
@@ -121,38 +121,57 @@ for itemID in pairs(ns.FallbackNames) do
   table.insert(ns.AllItemIDs, itemID)
 end
 
+-- An item's name, icon and quality never change once the client knows them, so each is looked
+-- up once and cached. Until then the lookups are retried (and names use Data.lua's fallbacks).
+local nameCache, iconCache, qualityCache, qualityHex = {}, {}, {}, {}
+
+--- Returns name, isFallback (true while the client hasn't loaded the item yet).
 function ns.ItemName(itemID)
-  local name = C_Item.GetItemNameByID(itemID)
+  local name = nameCache[itemID] or C_Item.GetItemNameByID(itemID)
   if name then
+    nameCache[itemID] = name
     return name
   end
   C_Item.RequestLoadItemDataByID(itemID)
-  return ns.FallbackNames[itemID] or ("item:" .. itemID)
+  return ns.FallbackNames[itemID] or ("item:" .. itemID), true
 end
 
 function ns.ItemIcon(itemID)
-  return C_Item.GetItemIconByID(itemID) or 134400 -- question mark
+  local icon = iconCache[itemID] or C_Item.GetItemIconByID(itemID)
+  iconCache[itemID] = icon
+  return icon or 134400 -- question mark
+end
+
+function ns.ItemQuality(itemID)
+  local quality = qualityCache[itemID] or C_Item.GetItemQualityByID(itemID)
+  qualityCache[itemID] = quality
+  return quality
+end
+
+--- "|cffrrggbb" for an item quality (nil if unknown). Each quality is looked up once.
+function ns.QualityHex(quality)
+  if not quality then
+    return nil
+  end
+  local hex = qualityHex[quality]
+  if not hex then
+    if C_Item.GetItemQualityColor then
+      local _, _, _, h = C_Item.GetItemQualityColor(quality)
+      hex = h and ("|c" .. h)
+    end
+    hex = hex or (ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] and ITEM_QUALITY_COLORS[quality].hex)
+    qualityHex[quality] = hex
+  end
+  return hex
 end
 
 function ns.ItemColorHex(itemID)
-  local quality = C_Item.GetItemQualityByID(itemID)
-  if quality and C_Item.GetItemQualityColor then
-    local _, _, _, hex = C_Item.GetItemQualityColor(quality)
-    if hex then
-      return "|c" .. hex
-    end
-  end
-  if quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality] then
-    return ITEM_QUALITY_COLORS[quality].hex
-  end
-  return "|cffffffff"
+  return ns.QualityHex(ns.ItemQuality(itemID)) or "|cffffffff"
 end
 
+local GetItemCount = C_Item.GetItemCount
 function ns.CountInBags(itemID)
-  if C_Item.GetItemCount then
-    return C_Item.GetItemCount(itemID, false, false, true) or 0
-  end
-  return 0
+  return GetItemCount and GetItemCount(itemID, false, false, true) or 0
 end
 
 ---------------------------------------------------------------------------
