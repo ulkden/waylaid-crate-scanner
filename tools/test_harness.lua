@@ -426,6 +426,9 @@ check(
   ns.GetFavor("Artisan Ore", 1) == 25 and select(2, ns.GetFavor("Artisan Ore", 1)) == true,
   "/wcs favor override applies and counts as confirmed"
 )
+ns.SetFavorOverride("artisan common 0")
+ns.SetFavorOverride("artisan common 2.5")
+check(ns.GetFavor("Artisan Ore", 1) == 25, "/wcs favor rejects 0 and fractions")
 ns.SetFavorOverride("artisan common clear")
 check(ns.GetFavor("Artisan Ore", 1) == 20, "/wcs favor clear restores default")
 

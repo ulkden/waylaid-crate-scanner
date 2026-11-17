@@ -272,6 +272,7 @@ local function RecordPurchase(p)
   -- Those listings are gone now: remove them from the cached price ladder.
   ns.Prices.Consume(p.itemID, p.qty)
   AddToMail(p.itemID, p.qty)
+  ns:Fire("PRICES_UPDATED", p.itemID)
 end
 
 ns:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED", function()
