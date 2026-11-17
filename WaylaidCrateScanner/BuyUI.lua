@@ -139,6 +139,16 @@ local function BuildItemRow(parent)
     if row.itemID then
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:SetItemByID(row.itemID)
+      local inMail = Purchase.InMail(row.itemID)
+      if inMail > 0 then
+        GameTooltip:AddLine(
+          inMail .. " bought on the AH and waiting in your mailbox (counted in Have).",
+          0.4,
+          0.8,
+          1,
+          true
+        )
+      end
       GameTooltip:Show()
     end
   end)
@@ -596,10 +606,14 @@ local function Shown()
 end
 
 ns:Listen("PURCHASE_UPDATED", function(p, result)
-  if result == "succeeded" and p and BuyUI.qtyOverrides then
-    BuyUI.qtyOverrides[p.itemID] = nil
+  if not Shown() then
+    return
   end
-  if Shown() then
+  if result == "succeeded" then
+    -- Re-plan: what you just bought is in the mail and now counts as had.
+    BuyUI.qtyOverrides[p.itemID] = nil
+    BuyUI:Refresh()
+  else
     BuyUI:UpdateRows()
   end
 end)

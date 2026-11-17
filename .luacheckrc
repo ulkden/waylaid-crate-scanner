@@ -22,6 +22,7 @@ ignore = {
 globals = {
   "WaylaidCrateScanner",
   "WaylaidCrateScannerDB",
+  "WaylaidCrateScannerCharDB",
   "SLASH_WAYLAIDCRATESCANNER1",
   "SLASH_WAYLAIDCRATESCANNER2",
   "SlashCmdList",

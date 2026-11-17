@@ -476,6 +476,24 @@ check(
   P2.pending == nil and P.Listed(2770) == 176,
   "purchase: success clears state and consumes 24 from the cached ladder"
 )
+-- AH purchases go to the mailbox: they count as had until collected, and collecting them doesn't
+-- double count; crafting with them afterwards doesn't bring them back.
+local function OreHave()
+  local orePlan = ns.Purchase.BuildPlan({ crates = 1, optionItemID = 2770, optionQty = 20, craft = false })
+  return orePlan.shopping[1].have, orePlan.shopping[1].toBuy
+end
+check(P2.InMail(2770) == 24, "mail: bought Copper Ore is waiting in the mailbox")
+local have, toBuy = OreHave()
+check(have == 20 and toBuy == 0, "mail: the plan counts mailbox items as had (buy 0, not 20 again)")
+bagCounts[2770] = 24 -- collect the mail
+fire("BAG_UPDATE_DELAYED")
+check(P2.InMail(2770) == 0 and OreHave() == 20, "mail: collecting it moves the count from mail to bags")
+bagCounts[2770] = 4 -- craft with 20 of them
+fire("BAG_UPDATE_DELAYED")
+have = OreHave()
+check(have == 4 and P2.InMail(2770) == 0, "mail: using collected items doesn't resurrect the mail count")
+bagCounts[2770] = nil
+runTimers()
 P2.Start(2770, 5)
 fire("COMMODITY_PRICE_UNAVAILABLE")
 check(P2.pending == nil, "purchase: price unavailable ends the purchase")
@@ -565,7 +583,7 @@ if okBuy then
   BuyUI:OnBuyClick(row1)
   check(ns.Purchase.pending and ns.Purchase.pending.state == "buying", "BuyUI: Confirm click buys")
   fire("COMMODITY_PURCHASE_SUCCEEDED")
-  check(row1.BuyButton.text:find("^Buy") ~= nil, "BuyUI: button resets to Buy after the purchase")
+  check(row1.BuyButton.text == "Buy 0", "BuyUI: after buying, the line needs 0 more (it's in the mail)")
 
   -- Option costs are cached until prices change.
   local costs = BuyUI.optionCosts
@@ -577,6 +595,7 @@ if okBuy then
 
   -- Quotes expire on their own (Purchase owns the countdown; no per-frame OnUpdate).
   local quoteLeft = C_AuctionHouse.GetQuoteDurationRemaining
+  BuyUI.qtyOverrides[row1.itemID] = 1
   BuyUI:OnBuyClick(row1)
   fire("COMMODITY_PRICE_UPDATED", 55, 55)
   C_AuctionHouse.GetQuoteDurationRemaining = function()

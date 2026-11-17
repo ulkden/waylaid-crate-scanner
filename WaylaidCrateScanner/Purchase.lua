@@ -16,6 +16,43 @@ local MAX_PLAN_DEPTH = 10
 local QUOTE_TIMEOUT = 10 -- seconds to wait for the server's price quote
 
 ---------------------------------------------------------------------------
+-- Purchases waiting in the mailbox
+---------------------------------------------------------------------------
+-- AH purchases arrive by mail, not in your bags, so the planner would otherwise offer to buy
+-- them again. Each purchase adds to ns.charDB.inMail; whenever your bags gain that item, the
+-- gain is taken as mail being collected and comes off the mail count. (Crafting with it only
+-- shrinks your bags, so it doesn't touch the mail count.)
+
+--- Units of itemID bought on the AH and not yet collected from the mailbox.
+function Purchase.InMail(itemID)
+  return ns.charDB.inMail[itemID] or 0
+end
+
+local function AddToMail(itemID, qty)
+  local inMail = ns.charDB.inMail
+  if not inMail[itemID] then
+    ns.charDB.lastBags[itemID] = ns.CountInBags(itemID)
+  end
+  inMail[itemID] = (inMail[itemID] or 0) + qty
+end
+
+ns:RegisterEvent("BAG_UPDATE_DELAYED", function()
+  local inMail, lastBags = ns.charDB.inMail, ns.charDB.lastBags
+  for itemID, qty in pairs(inMail) do
+    local bags = ns.CountInBags(itemID)
+    local arrived = bags - (lastBags[itemID] or bags)
+    if arrived > 0 then
+      qty = qty - arrived
+    end
+    if qty > 0 then
+      inMail[itemID], lastBags[itemID] = qty, bags
+    else
+      inMail[itemID], lastBags[itemID] = nil, nil
+    end
+  end
+end)
+
+---------------------------------------------------------------------------
 -- Planning
 ---------------------------------------------------------------------------
 
@@ -29,7 +66,7 @@ function Purchase.BuildPlan(opts)
   local available = {}
   local function take(itemID, qty)
     if available[itemID] == nil then
-      available[itemID] = ns.CountInBags(itemID)
+      available[itemID] = ns.CountInBags(itemID) + Purchase.InMail(itemID)
     end
     local used = math.min(available[itemID], qty)
     available[itemID] = available[itemID] - used
@@ -220,6 +257,7 @@ ns:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED", function()
     ns.Print(string.format("bought %d x %s for %s.", p.qty, ns.ItemName(p.itemID), ns.FormatMoney(p.totalPrice, true)))
     -- Those listings are gone now: remove them from the cached price ladder.
     ns.Prices.Consume(p.itemID, p.qty)
+    AddToMail(p.itemID, p.qty)
     Finish("succeeded")
   end
 end)

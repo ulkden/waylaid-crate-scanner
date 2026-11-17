@@ -40,6 +40,21 @@ local DEFAULTS = {
   debug = false,
 }
 
+-- Per character: AH purchases still in the mailbox (see Purchase.lua).
+local CHAR_DEFAULTS = {
+  inMail = {}, -- [itemID] = units bought and not yet seen arriving in your bags
+  lastBags = {}, -- [itemID] = bag count when inMail was last updated
+}
+
+local function ApplyDefaults(db, defaults)
+  for k, v in pairs(defaults) do
+    if db[k] == nil then
+      db[k] = type(v) == "table" and {} or v
+    end
+  end
+  return db
+end
+
 ---------------------------------------------------------------------------
 -- Events + a tiny internal message bus
 ---------------------------------------------------------------------------
@@ -210,13 +225,10 @@ ns:RegisterEvent("ADDON_LOADED", function(_, name)
   if name ~= addonName then
     return
   end
-  WaylaidCrateScannerDB = WaylaidCrateScannerDB or {}
-  for k, v in pairs(DEFAULTS) do
-    if WaylaidCrateScannerDB[k] == nil then
-      WaylaidCrateScannerDB[k] = type(v) == "table" and {} or v
-    end
-  end
+  WaylaidCrateScannerDB = ApplyDefaults(WaylaidCrateScannerDB or {}, DEFAULTS)
+  WaylaidCrateScannerCharDB = ApplyDefaults(WaylaidCrateScannerCharDB or {}, CHAR_DEFAULTS)
   ns.db = WaylaidCrateScannerDB
+  ns.charDB = WaylaidCrateScannerCharDB
   ns.db.learnedCrates = nil -- obsolete: crate item IDs now ship in Data.lua
   ns.db.marketSort = nil -- obsolete: replaced by ns.db.sort
 end)
